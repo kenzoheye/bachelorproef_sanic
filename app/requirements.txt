@@ -1,0 +1,4 @@
+gunicorn
+sanic
+sanic-jwt
+aiohttp

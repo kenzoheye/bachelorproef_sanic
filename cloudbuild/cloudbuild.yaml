@@ -1,0 +1,33 @@
+steps:
+
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'build'
+  - '-t'
+  - 'eu.gcr.io/$PROJECT_ID/${_NAMESPACE}/${_POD}:$COMMIT_SHA'
+  - '-t'
+  - 'eu.gcr.io/$PROJECT_ID/${_NAMESPACE}/${_POD}:latest'
+  - '--cache-from'
+  - 'eu.gcr.io/$PROJECT_ID/${_NAMESPACE}/${_POD}:latest'
+  - '.'
+
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'push'
+  - 'eu.gcr.io/$PROJECT_ID/${_NAMESPACE}/${_POD}'
+
+- name: 'gcr.io/cloud-builders/kubectl'
+  args: 
+  - '-n'
+  - '${_NAMESPACE}'
+  - 'set'
+  - 'image'
+  - 'deployment/${_POD}'
+  - '${_POD}=eu.gcr.io/$PROJECT_ID/${_NAMESPACE}/${_POD}:$COMMIT_SHA'
+  env:
+  - 'CLOUDSDK_COMPUTE_ZONE=europe-west1-c'
+  - 'CLOUDSDK_CONTAINER_CLUSTER=cluster-1'
+
+substitutions:
+    _NAMESPACE: phoenix
+    _POD: wg-auz
