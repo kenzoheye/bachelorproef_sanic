@@ -2,3 +2,4 @@ gunicorn
 sanic
 sanic-jwt
 aiohttp
+git+https://github.com/wegroupwolves/sanic-openapi
