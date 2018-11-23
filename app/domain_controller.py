@@ -90,6 +90,21 @@ API = {
 }
 
 
-async def get_auz():
+async def auz(email=None, path=None, operation=None):
+
+    try:
+
+        if not email:
+            raise Exception("no email!")
+
+        if not path:
+            raise Exception("no path!")
+
+        if not operation:
+            raise Exception("no operation!")
+
+    except Exception as e:
+
+        return {"error": e}
 
     return API
