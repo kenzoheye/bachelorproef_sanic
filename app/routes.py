@@ -19,7 +19,35 @@ Declare all routes here for overview
 """
 
 
-@API.post("/auth", version="v1", strict_slashes=True)
+@API.post("/auz", version="v1", strict_slashes=True)
+    try:
+
+        args = request.json
+
+        if "email" not in args:
+
+            raise Exception("no email provided! use {'email': 'email'}")
+
+        if "secret" not in args:
+
+            raise Exception("no secret provided! use {'secret': 'secret'}")
+
+        email = args["email"]
+        secret = args["secret"]
+
+        resp = await dc.authenticate(email=email, secret=secret)
+
+        if "error" in resp:
+
+            raise Exception(json.dumps(resp["error"]))
+
+    except Exception as e:
+
+        logger.error(e)
+        return response.json({"errors": e.args}, status=400)
+
+    return response.json(resp, status=201)
+
 @doc.summary("authenticates a user")
 @doc.consumes(
     {"body": {"email": str, "secret": str}},

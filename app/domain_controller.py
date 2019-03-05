@@ -1,4 +1,22 @@
-API = {
+# CODEX XXXXX
+#
+# X1 = admin
+#
+#
+#
+#
+#
+#
+#
+
+SCOPES = {
+    "wg-be-carquotes": {
+        ("GET", "/openapi/spec.json"): ["admin", "broker", "superbroker", "anonymous"],
+        ("POST", "/openapi/spec.json"): ["admin", "broker", "superbroker", "anonymous"],
+    }
+}
+
+_IN_PROGRESS_API = {
     "models": {
         "car": {"manufacturer": "str", "model": "str", "TODO": "TODO"},
         "driver": {"firsname": "str", "lastname": "str", "TODO": "TODO"},
