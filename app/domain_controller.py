@@ -124,5 +124,3 @@ async def auz(email=None, path=None, operation=None):
     except Exception as e:
 
         return {"error": e}
-
-    return API

@@ -1,5 +1,5 @@
+from __future__ import absolute_import
 from sanic import Sanic
-from sanic import Blueprint
 from logger import LOGGING_CONFIG
 from sanic.log import logger
 import json
@@ -32,6 +32,7 @@ async def auz(get, uri, token=None):
                 verify = True
 
     return verify
+
 
 @app.post("/", strict_slashes=True)
 @app.post("/auz", strict_slashes=True)
