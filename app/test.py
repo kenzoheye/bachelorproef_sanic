@@ -12,7 +12,7 @@ class AutoTest(unittest.TestCase):
         request, response = app.test_client.get('/')
 
         error = response.json.get('errors')[0]
-        self.assertEqual(error.get('domain', None), '/allowed')
+        self.assertEqual(error.get('domain', None), '/v1/api/allowed')
         self.assertEqual(response.status, 400)
 
     def test_index_invalid_token(self):
@@ -39,14 +39,14 @@ class AutoTest(unittest.TestCase):
         request, response = app.test_client.get('/', headers=headers)
 
     def test_allowed_no_body(self):
-        request, response = app.test_client.post('/allowed')
+        request, response = app.test_client.post('/v1/api/allowed')
         resp = response.json
         self.assertEqual(response.status, 400)
         self.assertEqual(resp.get('detail'), 'No body provided')
 
     def test_allowed_empty_body(self):
         body = {}
-        request, response = app.test_client.post('/allowed', json=body)
+        request, response = app.test_client.post('/v1/api/allowed', json=body)
         resp = response.json
         self.assertEqual(response.status, 400)
         self.assertEqual(resp.get('detail'), 'No URI provided')
@@ -55,7 +55,7 @@ class AutoTest(unittest.TestCase):
         body = {
             'URI': 'localhost:5001/'
         }
-        request, response = app.test_client.post('/allowed', json=body)
+        request, response = app.test_client.post('/v1/api/allowed', json=body)
         resp = response.json
         self.assertEqual(response.status, 400)
         self.assertEqual(resp.get('detail'), 'No method provided')
@@ -65,7 +65,7 @@ class AutoTest(unittest.TestCase):
             'URI': 'localhost:5001/',
             'method': "GET"
         }
-        request, response = app.test_client.post('/allowed', json=body)
+        request, response = app.test_client.post('/v1/api/allowed', json=body)
         resp = response.json
         self.assertEqual(response.status, 400)
         self.assertEqual(resp.get('detail'), 'No IP provided')
@@ -76,7 +76,7 @@ class AutoTest(unittest.TestCase):
             'method': "GET",
             'ip': '127.0.0.1:42101'
         }
-        request, response = app.test_client.post('/allowed', json=body)
+        request, response = app.test_client.post('/v1/api/allowed', json=body)
         resp = response.json
         clog(resp)
         self.assertEqual(response.status, 200)
@@ -88,7 +88,7 @@ class AutoTest(unittest.TestCase):
             'method': "GET",
             'ip': '127.0.0.1:42101'
         }
-        request, response = app.test_client.post('/allowed', json=body)
+        request, response = app.test_client.post('/v1/api/allowed', json=body)
         resp = response.json
         clog(resp)
         self.assertEqual(response.status, 403)
@@ -100,7 +100,7 @@ class AutoTest(unittest.TestCase):
             'ip': '127.0.0.1:42101'
         }
         headers = {'authorization': 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoia2Vuem8uaGV5ZUB3ZWdyb3VwLmJlIiwiZXhwIjoxNTUxOTUzNjc4fQ.1p-NvMiT6N1OBu-fBA1l_HDPvQWwTyl9YkwIIFSlO2A'}
-        request, response = app.test_client.post('/allowed', json=body, headers=headers)
+        request, response = app.test_client.post('/v1/api/allowed', json=body, headers=headers)
         resp = response.json
         self.assertEqual(response.status, 401)
         self.assertEqual(resp.get('reasons')[0], 'Signature has expired.')
@@ -112,7 +112,7 @@ class AutoTest(unittest.TestCase):
             'ip': '127.0.0.1:42101'
         }
         headers = {'authorization': 'Bearer eyJ0eXAiOiJK1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoia2Vuem8uaGV5ZUB3ZWdyb3VwLmJlIiwiZXhwIjoxNTUxOTUzNjc4fQ.1p-NvMiT6N1OBu-fBA1l_HDPvQWwTyl9YkwIIFSlO2A'}
-        request, response = app.test_client.post('/allowed', json=body, headers=headers)
+        request, response = app.test_client.post('/v1/api/allowed', json=body, headers=headers)
         resp = response.json
         self.assertEqual(response.status, 401)
         self.assertEqual(resp.get('reasons')[0], 'Auth required.')
@@ -131,7 +131,7 @@ class AutoTest(unittest.TestCase):
             'ip': '127.0.0.1:42101'
         }
         headers = {'authorization': 'Bearer ' + a_token}
-        request, response = app.test_client.post('/allowed', json=body, headers=headers)
+        request, response = app.test_client.post('/v1/api/allowed', json=body, headers=headers)
         resp = response.json
         self.assertEqual(response.status, 200)
         self.assertTrue(resp.get('allowed'))
@@ -150,7 +150,7 @@ class AutoTest(unittest.TestCase):
             'ip': '127.0.0.1:42101'
         }
         headers = {'authorization': 'Bearer ' + a_token}
-        request, response = app.test_client.post('/allowed', json=body, headers=headers)
+        request, response = app.test_client.post('/v1/api/allowed', json=body, headers=headers)
         resp = response.json
         self.assertEqual(response.status, 403)
         self.assertEqual(resp.get('errors')[0].get('detail'), 'User does not have the correct access rights')
