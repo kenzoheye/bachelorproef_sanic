@@ -2,7 +2,7 @@ from sanic import Blueprint
 from sanic.log import logger
 import aiohttp
 from sanic.response import json
-from config import WG_BE_PHOENIX_AUZ, TIMEOUT
+from config import SERVER_WG_BE_PHOENIX_AUZ, TIMEOUT
 
 # json
 

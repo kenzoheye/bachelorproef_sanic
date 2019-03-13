@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from sanic.log import logger
 from sanic.response import json
 import aiohttp
-from config import WG_BE_PHOENIX_AUT, TIMEOUT, WG_BE_PHOENIX_MAIN
+from config import SERVER_WG_BE_PHOENIX_AUT, TIMEOUT, SERVER_WG_BE_PHOENIX_MAIN
 
 
 async def allowed_route(request):
