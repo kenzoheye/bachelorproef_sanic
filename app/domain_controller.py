@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from controllers import c_auz
 from sanic.log import logger
 
