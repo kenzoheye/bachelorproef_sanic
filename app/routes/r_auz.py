@@ -1,8 +1,10 @@
 from __future__ import absolute_import
 from sanic_openapi import doc
 from sanic.log import logger
+from sanic.response import json
 from routes.models import AllowedConsumes
 import domain_controller as dc
+from exception import FormattedException
 
 
 @doc.summary("Check if user has right credentials")
@@ -23,7 +25,7 @@ import domain_controller as dc
     description="error",
     examples={
         "domain": "/allowed",
-        "detail": "URI does not exist or is not allowed to be accessed.",
+        "detail": "There was a problem checking if route is allowed",
         "code": 400,
     },
 )
@@ -48,6 +50,13 @@ import domain_controller as dc
 async def allowed_route(request):
     try:
         return await dc.allowed_route(request)
+    except FormattedException as e:
+        logger.error(e)
+        logger.error(e.formatted)
+        return json(e.formatted, status=e.formatted.get("code", 400))
     except Exception as e:
         logger.error(e)
-        return "error"
+        f = FormattedException(
+            e, domain="auz", detail="There was a problem checking if route is allowed"
+        )
+        return json(f.formatted, status=f.formatted.get("code", 400))

@@ -3,7 +3,7 @@ from sanic import Blueprint
 from sanic.log import logger
 import aiohttp
 from sanic.response import json
-from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUT
+from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUZ
 
 # json
 
@@ -25,9 +25,9 @@ async def auth_middleware_test(request):
     ):
         logger.info("/allowed accessed")
     else:
-        logger.info("middleware")
         method = request.method
-        uri = request.url
+        host = request.host
+        uri = request.path
         ip = None
         # TODO check if ip is public
         if "x-forwarded-for" in request.headers:
@@ -37,7 +37,7 @@ async def auth_middleware_test(request):
         if ip is None:
             ip = request.ip
 
-        body = {"URI": uri, "method": method.upper(), "ip": ip}
+        body = {"uri": uri, "host": host, "method": method, "ip": ip}
         auth = request.headers.get("authorization", None)
         timeout = TIMEOUT
         headers = {
@@ -46,16 +46,15 @@ async def auth_middleware_test(request):
         }
         if auth is not None:
             headers["authorization"] = auth
-        logger.info(headers)
+
         try:
-            AUZ = SERVER_WG_BE_PHOENIX_AUT
-            if request.host == "127.0.0.1:42101":
-                AUZ = "http://127.0.0.1:42101"
-            logger.info("CONNECTING TO AUZ ON: " + AUZ)
+            logger.info(f"headers: {headers}")
             async with aiohttp.ClientSession(
                 timeout=timeout, headers=headers
             ) as session:
-                async with session.post(AUZ + "/v1/api/allowed", json=body) as resp:
+                async with session.post(
+                    SERVER_WG_BE_PHOENIX_AUZ + "/v1/api/allowed", json=body
+                ) as resp:
                     logger.info(resp)
                     status = resp.status
                     resp = await resp.json()
