@@ -12,7 +12,7 @@ async def allowed_route(request):
         method = request.json["method"]
         request.json["ip"]
         host = request.json["host"]
-        auth = request.headers.get("authorization")
+        auth = request.headers.get("Authorization")
     except KeyError as e:
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
 
@@ -38,6 +38,7 @@ async def allowed_route(request):
     """
     # IP TRACKING END -- TODO --
     role = "anonymous"
+    logger.info(auth)
     if auth:
         logger.info("Authorization header found")
         headers = {"authorization": auth}

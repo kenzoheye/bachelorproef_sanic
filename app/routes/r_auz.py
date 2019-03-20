@@ -9,42 +9,45 @@ from exception import FormattedException
 
 @doc.summary("Check if user has right credentials")
 @doc.consumes(AllowedConsumes, location="body", content_type="application/vnd.api+json")
+@doc.response(200, description="success", examples={"allowed": True})
 @doc.response(
-    200,
-    description="success",
+    503,
+    description="microservice down",
     examples={
-        "allowed": True,
-        "allowed_roles": ["admin", "system", "superbroker"],
-        "role": "admin",
-        "allowed_methods": ["GET"],
-        "method": "GET",
+        "domain": "auz",
+        "msg": "111",
+        "detail": "There was a problem connecting to AUT",
+        "code": 503,
+    },
+)
+@doc.response(
+    401,
+    description="token invalid or expired",
+    examples={
+        "domain": "auz",
+        "msg": "Invalid Bearer token",
+        "detail": {"reasons": ["Signature has expired."], "exception": "Unauthorized"},
+        "code": 401,
+    },
+)
+@doc.response(
+    403,
+    description="role not allowed",
+    examples={
+        "domain": "auz",
+        "msg": "User does not have the correct access rights",
+        "detail": None,
+        "code": 403,
     },
 )
 @doc.response(
     400,
     description="error",
     examples={
-        "domain": "/allowed",
-        "detail": "There was a problem checking if route is allowed",
+        "domain": "auz",
+        "msg": "There is a missing key in body: 'uri'",
+        "detail": None,
         "code": 400,
-    },
-)
-@doc.response(
-    401,
-    description="token invalid or expired",
-    examples={"reasons": ["Signature has expired."], "exception": "Unauthorized"},
-)
-@doc.response(
-    403,
-    description="role not allowed",
-    examples={
-        "errors": [
-            {
-                "domain": "/allowed",
-                "detail": "User does not have the access rights",
-                "code": 403,
-            }
-        ]
     },
 )
 async def allowed_route(request):
