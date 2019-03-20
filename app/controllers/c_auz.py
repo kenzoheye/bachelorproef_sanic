@@ -18,7 +18,6 @@ async def allowed_route(request):
 
     # IP TRACKING BEGIN -- TODO --
     """
-    
     if ip_addresses.get(ip,None) is None:
         ip_addresses[ip] = {'blacklisted': False, 'calls':[]}
 
@@ -98,7 +97,7 @@ async def allowed_route(request):
         )
     try:
         allowed_roles = resp["role"]
-    except:
+    except Exception:
         raise FormattedException(
             "URI doesn't exist or is not allowed to be accessed", domain="auz", code=403
         )
