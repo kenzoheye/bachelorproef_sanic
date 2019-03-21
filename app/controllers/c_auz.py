@@ -113,11 +113,9 @@ async def allowed_route(payload, authorization_header):
                     resp = await resp.json()
             if resp.get("me"):
                 user = User(**resp["me"])
-                logger.info(f"User {user} got from auz")
                 logger.info(
                     f"User {user} trying to authorize with {authorizationRequest}"
                 )
-                # setting the role to the user role
             else:
                 raise FormattedException(
                     "Invalid Bearer token", domain="auz", detail=resp, code=status
@@ -148,8 +146,6 @@ async def allowed_route(payload, authorization_header):
         logger.debug("------------- TESTING ----------------")
         host = authorizationRequest.host.split("/")[0]  # with port
         host = hosts.get(host)
-    else:
-        host = authorizationRequest.host.split(":")[0]  # without port
     # ---- TESTING PURPOSES -----
     call = (
         SERVER_WG_BE_PHOENIX_MAIN
