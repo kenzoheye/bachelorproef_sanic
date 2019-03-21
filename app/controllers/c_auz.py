@@ -10,7 +10,9 @@ class User(object):
 
     description = ""
 
-    def __init__(self, role, system_token=None, email=None, description=None):
+    def __init__(
+        self, role, system_token=None, email=None, description=None, *args, **kwargs
+    ):
         self.role = role
         if system_token:
             self.system_token = system_token
