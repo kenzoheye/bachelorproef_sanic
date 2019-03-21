@@ -1,11 +1,12 @@
 from __future__ import absolute_import
 from __future__ import print_function
 from app import app
-from config import WG_BE_PHOENIX_AUT, DEFAULT_TYPE
+from config import WG_BE_PHOENIX_AUT
 import requests
 import unittest
 
 print("testing")
+DEFAULT_TYPE = "application/vnd.api+json"
 
 
 class AutoTest(unittest.TestCase):

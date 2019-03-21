@@ -6,13 +6,34 @@ from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUT, SERVER_WG_BE_PHOENIX_MAIN
 from exception import FormattedException
 
 
+class User(object):
+
+    description = ""
+
+    def __init__(self, role, system_token=None, email=None, description=None):
+        self.role = role
+        if system_token:
+            self.system_token = system_token
+        if email:
+            self.email = email
+        if description:
+            self.description = description
+
+    def __repr__(self):
+        if self.system_token:
+            return f"<User [SYSTEM] {self.system_token} {self.role} {self.description}>"
+        if self.email:
+            return f"<User [USER] {self.email} {self.role} {self.description}>"
+
+
 async def allowed_route(request):
     try:
         uri = request.json["uri"]
         method = request.json["method"]
-        request.json["ip"]
         host = request.json["host"]
         auth = request.headers.get("Authorization")
+        # this is here not to be used yet, but to make the user aware that an IP is needed to auth
+        request.json["ip"]
     except KeyError as e:
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
 
@@ -38,9 +59,10 @@ async def allowed_route(request):
     """
     # IP TRACKING END -- TODO --
     role = "anonymous"
-    logger.info(auth)
+    user = None
     if auth:
-        logger.info("Authorization header found")
+        logger.info(f"AUTHORIZATION HEADER found: {auth}")
+        # logger.info("Authorization header found")
         headers = {"authorization": auth}
         try:
             async with aiohttp.ClientSession(
@@ -50,13 +72,17 @@ async def allowed_route(request):
                     status = resp.status
                     resp = await resp.json()
             if resp.get("me"):
-                logger.info(f"User found: {resp.get('me')}")
-                role = resp.get("me").get("role")
+                user = User(**resp["me"])
+                # logger.info(f"User found: {resp.get('me')}")
+                # role = resp.get("me").get("role")
+
+                logger.info(f"User {user} authenticated")
             else:
                 raise FormattedException(
                     "Invalid Bearer token", domain="auz", detail=resp, code=status
                 )
         except FormattedException as e:
+            logger.error(e)
             raise e
         except Exception as e:
             logger.error(e)
@@ -67,7 +93,6 @@ async def allowed_route(request):
                 code=503,
             )
 
-    logger.info("User role: " + role)
     # ---- TESTING PURPOSES -----
     hosts = {
         "localhost:5000": "wg-be-api-car",
@@ -86,29 +111,31 @@ async def allowed_route(request):
         SERVER_WG_BE_PHOENIX_MAIN
         + f"/v1/api/permission?host={host}&http_method={method}&uri={uri}"
     )
-    logger.info(f"Calling main on route: {call}")
+    logger.info(f"Calling main on route: {call} by user: {user}")
     try:
         async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
             async with session.get(call) as resp:
                 status = resp.status
                 resp = await resp.json()
     except Exception as e:
+        logger.error(e)
         raise FormattedException(
             e, domain="auz", detail="There was a problem connecting to MAIN"
         )
     try:
         allowed_roles = resp["role"]
-    except Exception:
+    except Exception as e:
+        logger.error(e)
         raise FormattedException(
             "URI doesn't exist or is not allowed to be accessed", domain="auz", code=403
         )
-    logger.info("user has role: " + role)
+    # logger.info("user has role: " + role)
     logger.info("allowed roles on uri: " + str(allowed_roles))
     if role in allowed_roles:
-        logger.info("User has a correct role")
+        logger.info(f"User {user} has a correct role")
         return json({"allowed": True})
     else:
-        logger.info("User does not have a correct role")
+        logger.info(f"User {user} does not have a correct role")
         raise FormattedException(
             "User does not have the correct access rights", domain="auz", code=403
         )
