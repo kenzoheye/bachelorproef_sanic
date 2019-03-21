@@ -54,7 +54,7 @@ async def allowed_route(request):
     try:
         payload = request.json
         authorization_header = request.headers.get("Authorization", None)
-        logger.info(f"REQUEST GOT: {payload}, HEADERS: {authorization_header}")
+        logger.info(f"REQUEST GOT: {payload}, HEADERS: {authorization_header[0:30]}")
         return await dc.allowed_route(payload, authorization_header)
     except FormattedException as e:
         logger.error(e)

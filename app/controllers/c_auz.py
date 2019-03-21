@@ -26,7 +26,7 @@ class User(object):
 
     def __repr__(self):
         if self.system_token:
-            return f"<User [SYSTEM] {self.system_token} {self.role} {self.description}>"
+            return f"<User [SYSTEM] {self.system_token[0:30]} {self.role} {self.description}>"
         if self.email:
             return f"<User [USER] {self.email} {self.role} {self.description}>"
 
@@ -55,7 +55,7 @@ class AuthorizationRequest(object):
 
     def __repr__(self):
         if self.authorization_header:
-            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} {self.authorization_header[0:15]} from {self.ip}>"
+            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} {self.authorization_header[0:30]} from {self.ip}>"
         else:
             return f"<AuthorizationRequest {self.host} {self.method} {self.uri} from {self.ip}>"
 
