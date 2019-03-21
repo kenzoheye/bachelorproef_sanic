@@ -52,6 +52,7 @@ from exception import FormattedException
 )
 async def allowed_route(request):
     try:
+        logger.info(f"REQUEST GOT: {request}")
         return await dc.allowed_route(request)
     except FormattedException as e:
         logger.error(e)

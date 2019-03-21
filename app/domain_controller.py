@@ -7,10 +7,8 @@ from exception import FormattedException
 async def allowed_route(payload) -> dict:
     try:
         data = await c_auz.allowed_route(payload)
-        logger.info(f"answer got: {data}")
         return data
     except FormattedException as e:
-        logger.error("Formatted exception received")
         logger.error(e.formatted)
         raise e
     except Exception as e:

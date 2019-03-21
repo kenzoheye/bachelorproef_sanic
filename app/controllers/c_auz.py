@@ -63,7 +63,8 @@ async def allowed_route(request):
     caller.get('calls').append(call)
     """
     # IP TRACKING END -- TODO --
-    role = "anonymous"
+
+    # SETTING THE DEFAULT USER OBJECT THIS IS NEEDED
     user = None
     if auth:
         logger.info(f"AUTHORIZATION HEADER found: {auth}")
@@ -78,10 +79,8 @@ async def allowed_route(request):
                     resp = await resp.json()
             if resp.get("me"):
                 user = User(**resp["me"])
-                # logger.info(f"User found: {resp.get('me')}")
-                # role = resp.get("me").get("role")
-
-                logger.info(f"User {user} authenticated")
+                logger.info(f"User {user} retrieved from AUT")
+                # setting the role to the user role
             else:
                 raise FormattedException(
                     "Invalid Bearer token", domain="auz", detail=resp, code=status
@@ -104,7 +103,6 @@ async def allowed_route(request):
         "localhost:5001": "wg-be-phoenix-aut",
         "localhost:5002": "wg-be-phoenix-auz",
     }
-    logger.info(host)
 
     if "localhost" in host or ":" in host:
         host = host.split("/")[0]  # with port
@@ -135,9 +133,10 @@ async def allowed_route(request):
             "URI doesn't exist or is not allowed to be accessed", domain="auz", code=403
         )
     # logger.info("user has role: " + role)
-    logger.info("allowed roles on uri: " + str(allowed_roles))
+    logger.info(f"allowed roles on uri: {uri}: {allowed_roles}")
+    role = user.role if hasattr(user, "role") else "anonymous"
     if role in allowed_roles:
-        logger.info(f"User {user} has a correct role")
+        logger.info(f"User {user} has correct role")
         return json({"allowed": True})
     else:
         logger.info(f"User {user} does not have a correct role")
