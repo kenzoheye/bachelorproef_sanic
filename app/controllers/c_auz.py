@@ -5,62 +5,8 @@ import aiohttp
 from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUT, SERVER_WG_BE_PHOENIX_MAIN
 from exception import FormattedException
 
-
-class User(object):
-
-    role = None
-    system_token = None
-    email = None
-    description = "no description"
-
-    def __init__(
-        self, role, system_token=None, email=None, description=None, *args, **kwargs
-    ):
-        self.role = role
-        if system_token:
-            self.system_token = system_token
-        if email:
-            self.email = email
-        if description:
-            self.description = description
-
-    def __repr__(self):
-        if self.system_token or self.email:
-            if self.system_token:
-                return f"<User [SYSTEM] {self.system_token[0:30]}... {self.role} {self.description}>"
-            if self.email:
-                return f"<User [USER] {self.email} {self.role} {self.description}>"
-        else:
-            return f"<User {self.role}>"
-
-
-class AuthorizationRequest(object):
-
-    host = None
-    method = None
-    uri = None
-    ip = None
-    authorization_header = None
-
-    def __init__(
-        self, host, method, uri, ip, authorization_header=None, *args, **kwargs
-    ):
-        if args:
-            logger.debug(f"got to many arguments for args: {args}")
-        if kwargs:
-            logger.debug(f"got to many arguments for kwargs: {kwargs}")
-
-        self.host = host
-        self.method = method
-        self.uri = uri
-        self.ip = ip
-        self.authorization_header = authorization_header
-
-    def __repr__(self):
-        if self.authorization_header:
-            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} {self.authorization_header[0:30]}... from ip: {self.ip}>"
-        else:
-            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} from {self.ip}>"
+from models.m_user import User
+from models.m_authorization_request import AuthorizationRequest
 
 
 async def allowed_route(payload, authorization_header):
