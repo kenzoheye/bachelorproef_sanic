@@ -24,6 +24,10 @@ async def auth_middleware_test(request):
     ):
         logger.debug(f"passing middleware, {request.path} accessed")
     else:
+        logger.debug("========================")
+        logger.debug(f"not passing directly middleware, {request}")
+        logger.debug("========================")
+
         method = request.method
         host = request.host
         uri = request.path
