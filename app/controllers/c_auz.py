@@ -65,7 +65,7 @@ async def allowed_route(payload, authorization_header):
         authorizationRequest = AuthorizationRequest(
             **payload, authorization_header=authorization_header
         )
-        # logger.info(authorizationRequest)
+        logger.info(authorizationRequest)
         # this is here not to be used yet, but to make the user aware that an IP is needed to auth
     except KeyError as e:
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
@@ -137,6 +137,7 @@ async def allowed_route(payload, authorization_header):
     }
 
     if "localhost" in authorizationRequest.host or ":" in authorizationRequest.host:
+        logger.debug("------------- TESTING ----------------")
         host = authorizationRequest.host.split("/")[0]  # with port
         host = hosts.get(host)
     else:
