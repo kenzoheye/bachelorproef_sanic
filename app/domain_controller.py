@@ -4,9 +4,9 @@ from sanic.log import logger
 from exception import FormattedException
 
 
-async def allowed_route(payload) -> dict:
+async def allowed_route(payload, authorization_header) -> dict:
     try:
-        data = await c_auz.allowed_route(payload)
+        data = await c_auz.allowed_route(payload, authorization_header)
         return data
     except FormattedException as e:
         logger.error(e.formatted)

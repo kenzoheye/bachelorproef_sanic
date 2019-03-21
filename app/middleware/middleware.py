@@ -17,13 +17,12 @@ blueprint = Blueprint("middleware.middleware")
 
 @blueprint.middleware("request")
 async def auth_middleware_test(request):
-    logger.warning(request.path)
     if (
         "/v1/api/allowed" == request.path
         or "/swagger" in request.path
         or "/openapi" in request.path
     ):
-        logger.info("/allowed accessed")
+        logger.debug(f"passing middleware, {request.path} accessed")
     else:
         method = request.method
         host = request.host
@@ -38,6 +37,7 @@ async def auth_middleware_test(request):
             ip = request.ip
 
         body = {"uri": uri, "host": host, "method": method, "ip": ip}
+        logger.info(f"calling auz with request {body}")
         auth = request.headers.get("authorization", None)
         timeout = TIMEOUT
         headers = {
@@ -58,9 +58,10 @@ async def auth_middleware_test(request):
                     logger.info(resp)
                     status = resp.status
                     resp = await resp.json()
-            logger.info(resp)
+                    logger.info(f"response from AUZ: resp")
             allowed = resp.get("allowed", False)
             if not allowed:
                 return json(resp, status=status)
         except Exception as e:
+            logger.error(e)
             return json({"error": e})

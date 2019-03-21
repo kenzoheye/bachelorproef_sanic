@@ -11,7 +11,7 @@ class User(object):
     role = None
     system_token = None
     email = None
-    description = ""
+    description = "no description"
 
     def __init__(
         self, role, system_token=None, email=None, description=None, *args, **kwargs
@@ -31,14 +31,42 @@ class User(object):
             return f"<User [USER] {self.email} {self.role} {self.description}>"
 
 
-async def allowed_route(request):
+class AuthorizationRequest(object):
+
+    host = None
+    method = None
+    uri = None
+    ip = None
+    authorization_header = None
+
+    def __init__(
+        self, host, method, uri, ip, authorization_header=None, *args, **kwargs
+    ):
+        if args:
+            logger.debug(f"got to many arguments for args: {args}")
+        if kwargs:
+            logger.debug(f"got to many arguments for kwargs: {kwargs}")
+
+        self.host = host
+        self.method = method
+        self.uri = uri
+        self.ip = ip
+        self.authorization_header = authorization_header
+
+    def __repr__(self):
+        if self.authorization_header:
+            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} {self.authorization_header[0:15]} from {self.ip}>"
+        else:
+            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} from {self.ip}>"
+
+
+async def allowed_route(payload, authorization_header):
     try:
-        uri = request.json["uri"]
-        method = request.json["method"]
-        host = request.json["host"]
-        auth = request.headers.get("Authorization")
+        authorizationRequest = AuthorizationRequest(
+            **payload, authorization_header=authorization_header
+        )
+        # logger.info(authorizationRequest)
         # this is here not to be used yet, but to make the user aware that an IP is needed to auth
-        request.json["ip"]
     except KeyError as e:
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
 
@@ -66,10 +94,9 @@ async def allowed_route(request):
 
     # SETTING THE DEFAULT USER OBJECT THIS IS NEEDED
     user = None
-    if auth:
-        logger.info(f"AUTHORIZATION HEADER found: {auth}")
+    if authorizationRequest.authorization_header:
         # logger.info("Authorization header found")
-        headers = {"authorization": auth}
+        headers = {"authorization": authorizationRequest.authorization_header}
         try:
             async with aiohttp.ClientSession(
                 timeout=TIMEOUT, headers=headers
@@ -79,7 +106,10 @@ async def allowed_route(request):
                     resp = await resp.json()
             if resp.get("me"):
                 user = User(**resp["me"])
-                logger.info(f"User {user} retrieved from AUT")
+                logger.info(f"User {user} got from auz")
+                logger.info(
+                    f"User {user} trying to authorize with {authorizationRequest}"
+                )
                 # setting the role to the user role
             else:
                 raise FormattedException(
@@ -96,6 +126,8 @@ async def allowed_route(request):
                 detail="There was a problem connecting to AUT",
                 code=503,
             )
+    else:
+        logger.info(f"User anonymous trying to authorize with {authorizationRequest}")
 
     # ---- TESTING PURPOSES -----
     hosts = {
@@ -104,15 +136,15 @@ async def allowed_route(request):
         "localhost:5002": "wg-be-phoenix-auz",
     }
 
-    if "localhost" in host or ":" in host:
-        host = host.split("/")[0]  # with port
+    if "localhost" in authorizationRequest.host or ":" in authorizationRequest.host:
+        host = authorizationRequest.host.split("/")[0]  # with port
         host = hosts.get(host)
     else:
-        host = host.split(":")[0]  # without port
+        host = authorizationRequest.host.split(":")[0]  # without port
     # ---- TESTING PURPOSES -----
     call = (
         SERVER_WG_BE_PHOENIX_MAIN
-        + f"/v1/api/permission?host={host}&http_method={method}&uri={uri}"
+        + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&uri={authorizationRequest.uri}"
     )
     logger.info(f"Calling main on route: {call} by user: {user}")
     try:
@@ -128,12 +160,14 @@ async def allowed_route(request):
     try:
         allowed_roles = resp["role"]
     except Exception as e:
-        logger.error(e)
+        logger.error(
+            f"uri {authorizationRequest.uri} doesn't exist or is not allowed to be accessed error: {e}"
+        )
         raise FormattedException(
-            "URI doesn't exist or is not allowed to be accessed", domain="auz", code=403
+            "uri doesn't exist or is not allowed to be accessed", domain="auz", code=403
         )
     # logger.info("user has role: " + role)
-    logger.info(f"allowed roles on uri: {uri}: {allowed_roles}")
+    logger.info(f"allowed roles on uri: {authorizationRequest.uri}: {allowed_roles}")
     role = user.role if hasattr(user, "role") else "anonymous"
     if role in allowed_roles:
         logger.info(f"User {user} has correct role")
