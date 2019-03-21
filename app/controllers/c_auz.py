@@ -61,9 +61,7 @@ class AuthorizationRequest(object):
 
 
 async def allowed_route(payload, authorization_header):
-    logger.debug("========================")
-    logger.debug(f"allowed_route called with {payload}, {authorization_header}")
-    logger.debug("========================")
+    logger.debug(f"allowed_route called")
     try:
         authorizationRequest = AuthorizationRequest(
             **payload, authorization_header=authorization_header
