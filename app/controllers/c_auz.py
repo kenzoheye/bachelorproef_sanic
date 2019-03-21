@@ -26,7 +26,7 @@ class User(object):
 
     def __repr__(self):
         if self.system_token:
-            return f"<User [SYSTEM] {self.system_token[0:30]} {self.role} {self.description}>"
+            return f"<User [SYSTEM] {self.system_token[0:30]}... {self.role} {self.description}>"
         if self.email:
             return f"<User [USER] {self.email} {self.role} {self.description}>"
 
@@ -55,7 +55,7 @@ class AuthorizationRequest(object):
 
     def __repr__(self):
         if self.authorization_header:
-            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} {self.authorization_header[0:30]} from {self.ip}>"
+            return f"<AuthorizationRequest {self.host} {self.method} {self.uri} {self.authorization_header[0:30]}... from ip: {self.ip}>"
         else:
             return f"<AuthorizationRequest {self.host} {self.method} {self.uri} from {self.ip}>"
 
@@ -66,9 +66,12 @@ async def allowed_route(payload, authorization_header):
             **payload, authorization_header=authorization_header
         )
         logger.info(authorizationRequest)
-        # this is here not to be used yet, but to make the user aware that an IP is needed to auth
     except KeyError as e:
+        logger.error(f"There is a missing key in body: {e}")
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(f"Unable to create AuthorizationRequest", domain="auz")
 
     # IP TRACKING BEGIN -- TODO --
     """
