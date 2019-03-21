@@ -54,6 +54,7 @@ from exception import FormattedException
 async def allowed_route(request):
     try:
         logger.debug(request)
+        logger.debug(request.headers)
         payload = request.json
         logger.debug(payload)
         authorization_header = request.headers.get("Authorization", None)
