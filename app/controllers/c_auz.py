@@ -8,6 +8,9 @@ from exception import FormattedException
 
 class User(object):
 
+    role = None
+    system_token = None
+    email = None
     description = ""
 
     def __init__(
