@@ -25,10 +25,13 @@ class User(object):
             self.description = description
 
     def __repr__(self):
-        if self.system_token:
-            return f"<User [SYSTEM] {self.system_token[0:30]}... {self.role} {self.description}>"
-        if self.email:
-            return f"<User [USER] {self.email} {self.role} {self.description}>"
+        if self.system_token or self.email:
+            if self.system_token:
+                return f"<User [SYSTEM] {self.system_token[0:30]}... {self.role} {self.description}>"
+            if self.email:
+                return f"<User [USER] {self.email} {self.role} {self.description}>"
+        else:
+            return f"<User {self.role}>"
 
 
 class AuthorizationRequest(object):
@@ -131,7 +134,8 @@ async def allowed_route(payload, authorization_header):
                 code=503,
             )
     else:
-        logger.info(f"User anonymous trying to authorize with {authorizationRequest}")
+        user = User(role="anonymous")
+        logger.info(f"User {user} trying to authorize with {authorizationRequest}")
 
     # ---- TESTING PURPOSES -----
     hosts = {
@@ -172,9 +176,20 @@ async def allowed_route(payload, authorization_header):
             "uri doesn't exist or is not allowed to be accessed", domain="auz", code=403
         )
     # logger.info("user has role: " + role)
+
+    # ROLE_WEIGHTS = {"admin": 1000, "system": 999, "superbroker": 100, "broker": 99,  "api": 5, "customer": 1, "anonymous": 0}
     logger.info(f"allowed roles on uri: {authorizationRequest.uri}: {allowed_roles}")
-    role = user.role if hasattr(user, "role") else "anonymous"
-    if role in allowed_roles:
+
+    # ######################
+    # CHECKING ROLES CAREFULL
+    # ######################
+    if "anonymous" in allowed_roles:
+        # if anonymous, everyone can pass
+        return json({"allowed": True})
+    elif user.role == "admin":
+        # if admin, he can always pass
+        return json({"allowed": True})
+    elif user.role in allowed_roles:
         logger.info(f"User {user} has correct role")
         return json({"allowed": True})
     else:

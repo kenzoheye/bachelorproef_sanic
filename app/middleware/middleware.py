@@ -5,13 +5,6 @@ import aiohttp
 from sanic.response import json
 from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUZ
 
-# json
-
-# from errors import format_error
-# from logger import logger
-
-# from sanic.log import logger
-
 blueprint = Blueprint("middleware.middleware")
 
 
@@ -24,9 +17,7 @@ async def auth_middleware_test(request):
     ):
         logger.debug(f"passing middleware, {request.path} accessed")
     else:
-        logger.debug("========================")
         logger.debug(f"not passing directly middleware, {request}")
-        logger.debug("========================")
 
         method = request.method
         host = request.host
