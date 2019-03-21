@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from __future__ import print_function
 from sanic_openapi import doc
 from sanic.log import logger
 from sanic.response import json
@@ -62,6 +63,9 @@ async def allowed_route(request):
         return json(e.formatted, status=e.formatted.get("code", 400))
     except Exception as e:
         logger.error(e)
+        import traceback
+
+        print((traceback.print_exc()))
         f = FormattedException(
             e, domain="auz", detail="There was a problem checking if route is allowed"
         )
