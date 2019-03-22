@@ -103,6 +103,7 @@ async def allowed_route(payload, authorization_header):
             async with session.get(call) as resp:
                 status = resp.status
                 resp = await resp.json()
+                logger.debug(f"information retrieved from main: {resp}")
     except Exception as e:
         logger.error(e)
         raise FormattedException(
