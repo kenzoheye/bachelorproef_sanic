@@ -7,6 +7,11 @@ from exception import FormattedException
 
 from models.m_user import User
 from models.m_authorization_request import AuthorizationRequest
+import re
+
+
+def url_hash(url):
+    return url.count("/")
 
 
 async def allowed_route(payload, authorization_header):
@@ -109,8 +114,77 @@ async def allowed_route(payload, authorization_header):
         raise FormattedException(
             e, domain="auz", detail="There was a problem connecting to MAIN"
         )
+
+    allowed_roles = None
     try:
-        allowed_roles = resp["role"]
+        """
+        here is some additional logic needed
+        we can check a certain route on 3 different levels:
+        1 on 1: /v1/api/users == /v1/api/users
+        but what about /v1/api/id which is actually something like /v1/api/45jlfd-234fs-dfa-2....
+        here we need a regex check. we can do a specific regex check or a general
+        /v1/api/[A-z]+ is better then /v1/api/.+
+        additional we need to have a certain hash check see url_hash
+        """
+        if status == 200:
+            allowed_roles = resp["role"]
+            logger.info(
+                f"allowed roles for uri: {authorizationRequest.uri}: {allowed_roles}"
+            )
+        elif status == 400:  # which means nothing is found or something is wrong
+            logger.debug(
+                f"no allowed roles found at first for {authorizationRequest.uri} trying with regex matching"
+            )
+            hash_ = url_hash(authorizationRequest.uri)
+            call = (
+                SERVER_WG_BE_PHOENIX_MAIN
+                + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&url_hash={hash_}"
+            )
+            # 3 options nothing found again, 1 result or many
+            # logger.info(f"Calling main on route: {call} by user: {user}")
+            try:
+                async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
+                    async with session.get(call) as resp:
+                        status = resp.status
+                        resp = await resp.json()
+                        logger.debug(
+                            f"information retrieved from main with url_hash: {resp}"
+                        )
+            except Exception as e:
+                logger.error(e)
+                raise FormattedException(
+                    e, domain="auz", detail="There was a problem connecting to MAIN"
+                )
+            if status == 400:  # this means there are no urls
+                raise "nothing found got from main: {resp}"
+            elif status == 200:
+                if "values" in resp:  # means there are multiple uri's returned
+                    logger.debug("mutliple results returned to regex check")
+                    # TODO add paging
+                    for value in resp["values"]:
+                        pattern = re.compile(f"^{value['uri']}$")
+                        if re.match(f"^{value['uri']}$", authorizationRequest.uri):
+                            logger.debug(
+                                f"in multiple regex values got match {value['uri']}"
+                            )
+                            allowed_roles = value["role"]
+                            break
+                    else:
+                        raise "no regex match found"
+
+                elif (
+                    "role" in resp
+                ):  # this does not mean yet this is good, we need to check
+                    logger.debug(f"single result returned to regex check")
+                    pattern = re.compile(f"^{resp['uri']}$")
+                    if pattern.match(authorizationRequest.uri):
+                        logger.debug(f"in sigle regex check got match {resp['uri']}")
+                        allowed_roles = resp["role"]
+                    else:
+                        raise "no regex match found"
+                else:
+                    raise "no routes found"
+
     except Exception as e:
         logger.error(
             f"uri {authorizationRequest.uri} doesn't exist or is not allowed to be accessed error: {e}"
@@ -118,14 +192,13 @@ async def allowed_route(payload, authorization_header):
         raise FormattedException(
             "uri doesn't exist or is not allowed to be accessed", domain="auz", code=403
         )
-    # logger.info("user has role: " + role)
-
-    # ROLE_WEIGHTS = {"admin": 1000, "system": 999, "superbroker": 100, "broker": 99,  "api": 5, "customer": 1, "anonymous": 0}
-    logger.info(f"allowed roles on uri: {authorizationRequest.uri}: {allowed_roles}")
 
     # ######################
     # CHECKING ROLES CAREFULL
     # ######################
+    if not allowed_roles:
+        logger.error("no allowed_roles")
+        raise Exception("no allowed_roles")
     if "anonymous" in allowed_roles:
         # if anonymous, everyone can pass
         return json({"allowed": True})
