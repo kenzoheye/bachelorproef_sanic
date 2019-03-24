@@ -53,9 +53,10 @@ async def allowed_route(payload, authorization_header):
     # SETTING THE DEFAULT USER OBJECT THIS IS NEEDED
     user = None
     if authorizationRequest.authorization_header:
-        # logger.info("Authorization header found")
+        logger.info("Authorization header found")
 
         if authorizationRequest.is_system_token:
+            # SYSTEM TOKEN IS DIFFERENT ENDPOINT TO CHECK
             headers = {"authorization": authorizationRequest.authorization_header}
             try:
                 async with aiohttp.ClientSession(
