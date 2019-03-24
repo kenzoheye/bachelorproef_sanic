@@ -54,7 +54,7 @@ from exception import FormattedException
 async def allowed_route(request):
     try:
         payload = request.json
-        logger.debug("REQUEST GOT IN ROUTE.PY: headers: {request.headers}")
+        logger.debug(f"REQUEST GOT IN ROUTE.PY: headers: {request.headers}")
         if "authorization" in request.headers:
             authorization_header = request.headers["authorization"]
             logger.info(

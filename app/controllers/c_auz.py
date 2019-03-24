@@ -9,6 +9,18 @@ from models.m_user import User
 from models.m_authorization_request import AuthorizationRequest
 import re
 
+"""
+we need to check on different levels:
+
+VIA gateway:
+
+VIA API:
+- system: is just the real system token put in request.headers["authorization"]
+- api: is 'Bearer <access_token>' put in request.headers["authorization"]
+
+
+"""
+
 
 def url_hash(url):
     return url.count("/")
