@@ -54,34 +54,70 @@ async def allowed_route(payload, authorization_header):
     user = None
     if authorizationRequest.authorization_header:
         # logger.info("Authorization header found")
-        headers = {"authorization": authorizationRequest.authorization_header}
-        try:
-            async with aiohttp.ClientSession(
-                timeout=TIMEOUT, headers=headers
-            ) as session:
-                async with session.get(SERVER_WG_BE_PHOENIX_AUT + "/auth/me") as resp:
-                    status = resp.status
-                    resp = await resp.json()
-            if resp.get("me"):
-                user = User(**resp["me"])
-                logger.info(
-                    f"User {user} trying to authorize with {authorizationRequest}"
-                )
-            else:
+
+        if authorizationRequest.is_system_token:
+            headers = {"authorization": authorizationRequest.authorization_header}
+            try:
+                async with aiohttp.ClientSession(
+                    timeout=TIMEOUT, headers=headers
+                ) as session:
+                    async with session.get(
+                        SERVER_WG_BE_PHOENIX_AUT + "/verify/system_token"
+                    ) as resp:
+                        status = resp.status
+                        resp = await resp.json()
+                if "role" in resp:  # stupid check to see if it is really a user
+                    user = User(**resp)
+                    logger.info(
+                        f"System user: {user} trying to authorize with {authorizationRequest}"
+                    )
+                else:
+                    raise FormattedException(
+                        "Invalid system token", domain="auz", detail=resp, code=status
+                    )
+            except FormattedException as e:
+                logger.error(e)
+                raise e
+            except Exception as e:
+                logger.error(e)
                 raise FormattedException(
-                    "Invalid Bearer token", domain="auz", detail=resp, code=status
+                    e,
+                    domain="auz",
+                    detail="There was a problem connecting to AUT",
+                    code=503,
                 )
-        except FormattedException as e:
-            logger.error(e)
-            raise e
-        except Exception as e:
-            logger.error(e)
-            raise FormattedException(
-                e,
-                domain="auz",
-                detail="There was a problem connecting to AUT",
-                code=503,
-            )
+
+        else:
+            headers = {"authorization": authorizationRequest.authorization_header}
+            try:
+                async with aiohttp.ClientSession(
+                    timeout=TIMEOUT, headers=headers
+                ) as session:
+                    async with session.get(
+                        SERVER_WG_BE_PHOENIX_AUT + "/auth/me"
+                    ) as resp:
+                        status = resp.status
+                        resp = await resp.json()
+                if resp.get("me"):
+                    user = User(**resp["me"])
+                    logger.info(
+                        f"User {user} trying to authorize with {authorizationRequest}"
+                    )
+                else:
+                    raise FormattedException(
+                        "Invalid Bearer token", domain="auz", detail=resp, code=status
+                    )
+            except FormattedException as e:
+                logger.error(e)
+                raise e
+            except Exception as e:
+                logger.error(e)
+                raise FormattedException(
+                    e,
+                    domain="auz",
+                    detail="There was a problem connecting to AUT",
+                    code=503,
+                )
     else:
         user = User(role="anonymous")
         logger.info(f"User {user} trying to authorize with {authorizationRequest}")

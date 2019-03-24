@@ -9,6 +9,7 @@ class AuthorizationRequest(object):
     uri = None
     ip = None
     authorization_header = None
+    is_system_token = False
 
     def __init__(
         self, host, method, uri, ip, authorization_header=None, *args, **kwargs
@@ -23,6 +24,9 @@ class AuthorizationRequest(object):
         self.uri = uri
         self.ip = ip
         self.authorization_header = authorization_header
+
+        if authorization_header.startswith("WG-SYSTEM-TOKEN="):
+            self.is_system_token = True
 
     def __repr__(self):
         if self.authorization_header:
