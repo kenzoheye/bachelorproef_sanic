@@ -25,7 +25,7 @@ class AuthorizationRequest(object):
         self.ip = ip
         self.authorization_header = authorization_header
 
-        if authorization_header.startswith("WG-SYSTEM-TOKEN="):
+        if authorization_header and authorization_header.startswith("WG-SYSTEM-TOKEN="):
             self.is_system_token = True
 
     def __repr__(self):
