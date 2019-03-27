@@ -10,6 +10,9 @@ blueprint = Blueprint("middleware.middleware")
 
 @blueprint.middleware("request")
 async def auth_middleware_test(request):
+    """
+    we need this function otherwise the auz is checking itself in a infinte loop
+    """
     if (
         "/v1/api/allowed" == request.path
         or "/swagger" in request.path

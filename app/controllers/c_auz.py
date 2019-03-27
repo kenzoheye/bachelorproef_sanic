@@ -12,7 +12,9 @@ import re
 """
 we need to check on different levels:
 
-VIA gateway:
+VIA gateway ui login:
+this is a cookie so we set it as bearer token to pass in the gateway!
+AUZ will retrieve it as a request.headers["authorization"] with bearer token
 
 VIA API:
 - system: is just the real system token put in request.headers["authorization"]
