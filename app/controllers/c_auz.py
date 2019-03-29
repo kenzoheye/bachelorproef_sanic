@@ -287,7 +287,7 @@ async def allowed_route(payload, authorization_header):
         )
     logger.info(f"User {user} has correct role")
 
-    # let us create a token
+    # let us create a token and store it
     token = await generate_token()
 
     datetime_object = datetime.datetime.now()
@@ -300,4 +300,4 @@ async def allowed_route(payload, authorization_header):
         "created_at": str(datetime_object),
         "time_stamp": time.time(),
     }
-    return {"allowed": True, "token": token}
+    logger.debug(f"STORING AUZ_TOKEN {MEM[token]}")
