@@ -301,3 +301,5 @@ async def allowed_route(payload, authorization_header):
         "time_stamp": time.time(),
     }
     logger.debug(f"STORING AUZ_TOKEN {MEM[token]}")
+
+    return {"allowed": True, "token": token}
