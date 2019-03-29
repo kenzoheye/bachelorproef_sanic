@@ -54,8 +54,6 @@ from exception import FormattedException
 async def allowed_route(request):
     try:
         payload = request.json
-        logger.debug(f"REQUEST GOT IN ROUTE.PY: headers: {request.headers}")
-        logger.debug(f"REQUEST GOT IN ROUTE.PY: cookies: {request.cookies}")
         if "authorization" in request.headers:
             authorization_header = request.headers["authorization"]
             logger.info(
@@ -64,7 +62,35 @@ async def allowed_route(request):
         else:
             authorization_header = None
             logger.info(f"REQUEST GOT: {payload}")
-        return await dc.allowed_route(payload, authorization_header)
+        resp = await dc.allowed_route(payload, authorization_header)
+        return json(resp)
+    except FormattedException as e:
+        logger.error(e)
+        logger.error(e.formatted)
+        return json(e.formatted, status=e.formatted.get("code", 400))
+    except Exception as e:
+        logger.error(e)
+        import traceback
+
+        print((traceback.print_exc()))
+        f = FormattedException(
+            e, domain="auz", detail="There was a problem checking if route is allowed"
+        )
+        return json(f.formatted, status=f.formatted.get("code", 400))
+
+
+@doc.summary("TODO")
+async def check_token(request):
+    try:
+        payload = request.json
+        if "auz_token" not in payload:
+            raise Exception("no auz token provided!!!")
+        auz_token = payload["auz_token"]
+        resp = await dc.check_token(auz_token)
+        return json(resp)
+    except KeyError as e:
+        logger.error(e)
+        return json("no auz_token provided", status=400)
     except FormattedException as e:
         logger.error(e)
         logger.error(e.formatted)

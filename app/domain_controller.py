@@ -18,3 +18,19 @@ async def allowed_route(payload, authorization_header) -> dict:
             domain="allowed_route",
             detail="There was a problem checking if route is allowed",
         )
+
+
+async def check_token(token) -> dict:
+    try:
+        data = await c_auz.check_token(token)
+        return data
+    except FormattedException as e:
+        logger.error(e.formatted)
+        raise e
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(
+            e,
+            domain="check_token",
+            detail="There was a problem checking if token is allowed",
+        )

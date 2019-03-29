@@ -12,3 +12,10 @@ ROUTES = Blueprint.group(API, url_prefix="/")
 API.add_route(
     r_auz.allowed_route, "/allowed", methods=["POST"], version="v1", strict_slashes=True
 )
+API.add_route(
+    r_auz.check_token,
+    "/check_token",
+    methods=["POST"],
+    version="v1",
+    strict_slashes=True,
+)

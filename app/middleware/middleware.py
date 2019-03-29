@@ -7,17 +7,15 @@ from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUZ
 
 blueprint = Blueprint("middleware.middleware")
 
+ALLOWED_ROUTES_WITHOUT_CREDS = ["/v1/api/allowed", "/swagger"]
+
 
 @blueprint.middleware("request")
 async def auth_middleware_test(request):
     """
     we need this function otherwise the auz is checking itself in a infinte loop
     """
-    if (
-        "/v1/api/allowed" == request.path
-        or "/swagger" in request.path
-        or "/openapi" in request.path
-    ):
+    if request.path in ALLOWED_ROUTES_WITHOUT_CREDS:
         logger.debug(f"passing middleware, {request.path} accessed")
     else:
         logger.debug(f"not passing directly middleware, {request}")
@@ -46,7 +44,6 @@ async def auth_middleware_test(request):
             headers["authorization"] = auth
 
         try:
-            logger.info(f"headers: {headers}")
             async with aiohttp.ClientSession(
                 timeout=timeout, headers=headers
             ) as session:
@@ -56,7 +53,7 @@ async def auth_middleware_test(request):
                     logger.info(resp)
                     status = resp.status
                     resp = await resp.json()
-                    logger.info(f"response from AUZ: resp")
+                    logger.debug(f"response from AUZ: resp")
             allowed = resp.get("allowed", False)
             if not allowed:
                 return json(resp, status=status)

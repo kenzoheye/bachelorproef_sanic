@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from sanic.log import logger
-from sanic.response import json
+
+# from sanic.response import json
 import aiohttp
 from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUT, SERVER_WG_BE_PHOENIX_MAIN
 from exception import FormattedException
@@ -8,6 +9,10 @@ from exception import FormattedException
 from models.m_user import User
 from models.m_authorization_request import AuthorizationRequest
 import re
+import os
+import binascii
+import datetime
+import time
 
 """
 we need to check on different levels:
@@ -23,13 +28,29 @@ VIA API:
 
 """
 
+MEM = {}
+
 
 def url_hash(url):
     return url.count("/")
 
 
+async def generate_token(n=24, *args, **kwargs):
+    return str(binascii.hexlify(os.urandom(n)), "utf-8")
+
+
+async def check_token(auz_token):
+    if auz_token in MEM:
+        time_took = time.time() - MEM[auz_token]["time_stamp"]
+        logger.debug(f"DELETING AUZ_TOKEN {MEM[auz_token]}, request took: {time_took}")
+        del MEM[auz_token]
+        return True
+    else:
+        raise "no token in memory"
+
+
 async def allowed_route(payload, authorization_header):
-    logger.debug(f"allowed_route called")
+    logger.debug("allowed_route called")
     try:
         authorizationRequest = AuthorizationRequest(
             **payload, authorization_header=authorization_header
@@ -142,12 +163,14 @@ async def allowed_route(payload, authorization_header):
         "localhost:5000": "wg-be-api-car",
         "localhost:5001": "wg-be-phoenix-aut",
         "localhost:5002": "wg-be-phoenix-auz",
+        "localhost:5050": "wg-be-phoenix-mailer",
     }
 
     if "localhost" in authorizationRequest.host or ":" in authorizationRequest.host:
         logger.debug("------------- TESTING ----------------")
         host = authorizationRequest.host.split("/")[0]  # with port
         host = hosts.get(host)
+        authorizationRequest.host = host
     # ---- TESTING PURPOSES -----
     call = (
         SERVER_WG_BE_PHOENIX_MAIN
@@ -159,7 +182,7 @@ async def allowed_route(payload, authorization_header):
             async with session.get(call) as resp:
                 status = resp.status
                 resp = await resp.json()
-                logger.debug(f"information retrieved from main: {resp}")
+                logger.debug(f"information retrieved from main first try: {resp}")
     except Exception as e:
         logger.error(e)
         raise FormattedException(
@@ -235,7 +258,6 @@ async def allowed_route(payload, authorization_header):
                         raise "no regex match found"
                 else:
                     raise "no routes found"
-
     except Exception as e:
         logger.error(
             f"uri {authorizationRequest.uri} doesn't exist or is not allowed to be accessed error: {e}"
@@ -251,16 +273,31 @@ async def allowed_route(payload, authorization_header):
         logger.error("no allowed_roles")
         raise Exception("no allowed_roles")
     if "anonymous" in allowed_roles:
-        # if anonymous, everyone can pass
-        return json({"allowed": True})
+        pass
     elif user.role == "admin":
-        # if admin, he can always pass
-        return json({"allowed": True})
+        pass
     elif user.role in allowed_roles:
-        logger.info(f"User {user} has correct role")
-        return json({"allowed": True})
+        pass
     else:
-        logger.info(f"User {user} does not have a correct role")
+        logger.info(
+            f"User [{user}] does NOT have a correct role, userrole: [{user.role}] for [{authorizationRequest.method} {authorizationRequest.host} {authorizationRequest.uri}]"
+        )
         raise FormattedException(
             "User does not have the correct access rights", domain="auz", code=403
         )
+    logger.info(f"User {user} has correct role")
+
+    # let us create a token
+    token = await generate_token()
+
+    datetime_object = datetime.datetime.now()
+
+    MEM[token] = {
+        "uri": AuthorizationRequest.uri,
+        "host": AuthorizationRequest.host,
+        "method": AuthorizationRequest.method,
+        "ip": AuthorizationRequest.ip,
+        "created_at": str(datetime_object),
+        "time_stamp": time.time(),
+    }
+    return {"allowed": True, "token": token}
