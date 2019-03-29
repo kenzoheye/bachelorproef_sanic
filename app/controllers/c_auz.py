@@ -293,10 +293,10 @@ async def allowed_route(payload, authorization_header):
     datetime_object = datetime.datetime.now()
 
     MEM[token] = {
-        "uri": AuthorizationRequest.uri,
-        "host": AuthorizationRequest.host,
-        "method": AuthorizationRequest.method,
-        "ip": AuthorizationRequest.ip,
+        "uri": authorizationRequest.uri,
+        "host": authorizationRequest.host,
+        "method": authorizationRequest.method,
+        "ip": authorizationRequest.ip,
         "created_at": str(datetime_object),
         "time_stamp": time.time(),
     }
