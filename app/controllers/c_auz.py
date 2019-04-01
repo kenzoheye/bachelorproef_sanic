@@ -13,6 +13,8 @@ import os
 import binascii
 import datetime
 import time
+from copy import deepcopy
+import asyncio
 
 """
 we need to check on different levels:
@@ -29,6 +31,28 @@ VIA API:
 """
 
 MEM = {}
+
+
+async def remove_old_entries_in_memory(app):
+    while 1:
+        try:
+            # every 5 minutes 300
+            await asyncio.sleep(3)
+            logger.debug("Removing old sessions routine started")
+            now_plus_6hour = int(time.time()) + (3600 * 6)
+
+            _memory = deepcopy(MEM)
+
+            for k, v in _memory.items():
+                if int(v["time_stamp"]) < now_plus_6hour:
+                    logger.info(f"removing old entry, older then 6 hours: {MEM[k]}")
+                    del MEM[k]
+
+            del _memory
+            del now_plus_6hour
+        except Exception as e:
+            logger.error("Cannot remove old session")
+            logger.error(e)
 
 
 def url_hash(url):

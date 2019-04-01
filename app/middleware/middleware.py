@@ -13,7 +13,8 @@ ALLOWED_ROUTES_WITHOUT_CREDS = ["/v1/api/allowed", "/swagger"]
 @blueprint.middleware("request")
 async def auth_middleware_test(request):
     """
-    we need this function otherwise the auz is checking itself in a infinte loop
+    we need this function to allow everyone calling /v1/api/allowed and /swagger -> only for testing
+    because /openapi/spec.json is checked for role
     """
     if request.path in ALLOWED_ROUTES_WITHOUT_CREDS:
         logger.debug(f"passing middleware, {request.path} accessed")
