@@ -49,7 +49,7 @@ async def remove_old_entries_in_memory(app):
                     del MEM[k]
 
             del _memory
-            del now_plus_6hour
+            del now_plus_1hour
         except Exception as e:
             logger.error("Cannot remove old session")
             logger.error(e)
