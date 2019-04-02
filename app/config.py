@@ -23,8 +23,10 @@ SERVER_WG_BE_PHOENIX_MAIN = (
     os.environ.get("SERVER_WG_BE_PHOENIX_MAIN") or "http://wg-be-phoenix-main"
 )
 
-REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN") or None
-ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN") or None
-SYSTEM_TOKEN = os.environ.get("SYSTEM_TOKEN") or None
+# REFRESH_TOKEN = os.environ.get("REFRESH_TOKEN") or None
+# ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN") or None
+# SYSTEM_TOKEN = os.environ.get("SYSTEM_TOKEN") or None
 
 TIMEOUT = aiohttp.ClientTimeout(total=180)
+
+SYSTEM_TOKEN_PATH = os.environ.get("SYSTEM_TOKEN_PATH") or "/var/run"
