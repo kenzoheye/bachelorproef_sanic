@@ -20,22 +20,27 @@ async def get_secret():
     return secret
 
 
-async def push_route_metrics(data):
+async def push_metrics_auz_route_tracing(data):
+    payload = {"data": data, "type": "auz_route_tracing"}
     logger.debug(f"pushing {data} to phoenix metrics")
     try:
 
+        SYSTEM_TOKEN = await get_secret()
         headers_api_call = {
             "Content-Type": "application/vnd.api+json",
             "Accept": "application/vnd.api+json",
         }
-        url = None
-        # headers_api_call["Authorization"] = f"{SYSTEM_TOKEN}"
-        payload = {"data": data, "type": "auz_route_tracing"}
+        headers_api_call["Authorization"] = f"{SYSTEM_TOKEN}"
+        path = "/v1/api/metrics"
+        url = SERVER_WG_BE_PHOENIX_METRICS + path
         async with aiohttp.ClientSession(
             timeout=TIMEOUT, headers=headers_api_call
         ) as session:
             async with session.post(url, json=payload) as resp:
                 resp.status
                 resp = await resp.json()
+                logger.debug(f"response from auz: {resp}")
     except Exception as e:
-        raise e
+        logger.error(e)
+        logger.error(e)
+        logger.error(e)

@@ -15,6 +15,7 @@ import datetime
 import time
 from copy import deepcopy
 import asyncio
+from api_metrics import push_metrics_auz_route_tracing
 
 """
 we need to check on different levels:
@@ -69,6 +70,8 @@ async def check_token(auz_token):
         metrics_object = MEM[auz_token].copy()
         metrics_object["time_took"] = time_took
         logger.debug(f"DELETING AUZ_TOKEN {MEM[auz_token]}, request took: {time_took}")
+        loop = asyncio.get_event_loop()
+        loop.create_task(push_metrics_auz_route_tracing(MEM[auz_token]))
         del metrics_object
         del MEM[auz_token]
         return True
