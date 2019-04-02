@@ -39,12 +39,12 @@ async def remove_old_entries_in_memory(app):
             # every 5 minutes 300
             await asyncio.sleep(300)
             logger.debug("Removing old sessions routine started")
-            now_plus_6hour = time.time() + (3600 * 6)
+            now_plus_1hour = time.time() + (3600 * 1)
 
             _memory = deepcopy(MEM)
 
             for k, v in _memory.items():
-                if v["time_stamp"] < now_plus_6hour:
+                if v["time_stamp"] > now_plus_1hour:
                     logger.info(f"removing old entry, older then 6 hours: {MEM[k]}")
                     del MEM[k]
 
