@@ -15,7 +15,10 @@ import datetime
 import time
 from copy import deepcopy
 import asyncio
-from api_metrics import push_metrics_auz_route_tracing
+from api_metrics import (
+    push_metrics_auz_route_tracing_complete,
+    push_metrics_auz_route_tracing_expired,
+)
 
 """
 we need to check on different levels:
@@ -47,6 +50,8 @@ async def remove_old_entries_in_memory(app):
             for k, v in _memory.items():
                 if v["time_stamp"] > now_plus_10min:
                     logger.info(f"removing old entry, older then 6 hours: {MEM[k]}")
+                    loop = asyncio.get_event_loop()
+                    loop.create_task(push_metrics_auz_route_tracing_expired(MEM[k]))
                     del MEM[k]
 
             del _memory
@@ -71,7 +76,8 @@ async def check_token(auz_token):
         metrics_object["time_took"] = time_took
         logger.debug(f"DELETING AUZ_TOKEN {MEM[auz_token]}, request took: {time_took}")
         loop = asyncio.get_event_loop()
-        loop.create_task(push_metrics_auz_route_tracing(MEM[auz_token]))
+        MEM[auz_token]["time_took"] = time_took
+        loop.create_task(push_metrics_auz_route_tracing_complete(MEM[auz_token]))
         del metrics_object
         del MEM[auz_token]
         return True

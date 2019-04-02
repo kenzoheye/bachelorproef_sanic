@@ -20,8 +20,8 @@ async def get_secret():
     return secret
 
 
-async def push_metrics_auz_route_tracing(data):
-    payload = {"data": data, "type": "auz_route_tracing"}
+async def push_metrics(_type, data):
+    payload = {"data": data, "type": _type}
     logger.debug(f"pushing {data} to phoenix metrics")
     try:
 
@@ -44,3 +44,11 @@ async def push_metrics_auz_route_tracing(data):
         logger.error(e)
         logger.error(e)
         logger.error(e)
+
+
+async def push_metrics_auz_route_tracing_complete(data):
+    await push_metrics("auz_route_tracing_complete", data)
+
+
+async def push_metrics_auz_route_tracing_expired(data):
+    await push_metrics("auz_route_tracing_expired", data)
