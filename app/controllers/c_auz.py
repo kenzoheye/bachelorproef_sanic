@@ -319,6 +319,7 @@ async def allowed_route(payload, authorization_header):
 
     datetime_object = datetime.datetime.now()
 
+    # TODO add user to dict via dataclasses
     MEM[token] = {
         "uri": authorizationRequest.uri,
         "host": authorizationRequest.host,
@@ -326,6 +327,9 @@ async def allowed_route(payload, authorization_header):
         "ip": authorizationRequest.ip,
         "created_at": str(datetime_object),
         "time_stamp": time.time(),
+        "user_role": user.role,
+        "user_email": user.email,
+        "user_system_token": user.system_token,
     }
     logger.debug(f"STORING AUZ_TOKEN {MEM[token]}")
 
