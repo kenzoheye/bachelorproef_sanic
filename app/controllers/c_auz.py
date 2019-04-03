@@ -293,7 +293,7 @@ async def allowed_route(payload, authorization_header):
                     if pattern.match(authorizationRequest.uri):
                         logger.debug(f"in sigle regex check got match {resp['uri']}")
                         allowed_roles = resp["role"]
-                        allowed_callers = value["caller"]
+                        allowed_callers = resp["caller"]
                     else:
                         raise "no regex match found"
                 else:
