@@ -226,6 +226,7 @@ async def allowed_route(payload, authorization_header):
         )
 
     allowed_roles = None
+    allowed_callers = None
     try:
         """
         here is some additional logic needed
@@ -238,8 +239,9 @@ async def allowed_route(payload, authorization_header):
         """
         if status == 200:
             allowed_roles = resp["role"]
+            allowed_callers = resp["caller"] or None
             logger.info(
-                f"allowed roles for uri: {authorizationRequest.uri}: {allowed_roles}"
+                f"allowed roles for uri: {authorizationRequest.uri}: roles: {allowed_roles} callers: {allowed_callers}"
             )
         elif status == 400:  # which means nothing is found or something is wrong
             logger.debug(
@@ -278,6 +280,7 @@ async def allowed_route(payload, authorization_header):
                                 f"in multiple regex values got match {value['uri']}"
                             )
                             allowed_roles = value["role"]
+                            allowed_callers = value["caller"]
                             break
                     else:
                         raise "no regex match found"
@@ -290,6 +293,7 @@ async def allowed_route(payload, authorization_header):
                     if pattern.match(authorizationRequest.uri):
                         logger.debug(f"in sigle regex check got match {resp['uri']}")
                         allowed_roles = resp["role"]
+                        allowed_callers = value["caller"]
                     else:
                         raise "no regex match found"
                 else:
@@ -312,11 +316,13 @@ async def allowed_route(payload, authorization_header):
         pass
     elif user.role == "admin":
         pass
-    elif user.role in allowed_roles:
+    elif user.role in allowed_roles and not allowed_callers:
+        pass
+    elif user.role in allowed_roles and user.caller in allowed_callers:
         pass
     else:
         logger.info(
-            f"User [{user}] does NOT have a correct role, userrole: [{user.role}] for [{authorizationRequest.method} {authorizationRequest.host} {authorizationRequest.uri}]"
+            f"User [{user}] does NOT have a correct role, userrole: [{user.role}] caller: [{user.caller}] for [{authorizationRequest.method} {authorizationRequest.host} {authorizationRequest.uri}]"
         )
         raise FormattedException(
             "User does not have the correct access rights", domain="auz", code=403
