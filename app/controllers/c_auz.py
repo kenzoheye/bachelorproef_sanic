@@ -265,7 +265,7 @@ async def allowed_route(payload, authorization_header):
             except Exception as e:
                 logger.error(e)
                 raise FormattedException(
-                    e, domain="auz", detail="There was a problem connecting to MAIN"
+                    domain="auz", detail="There was a problem connecting to MAIN"
                 )
             if status == 400:  # this means there are no urls
                 raise "nothing found got from main: {resp}"
