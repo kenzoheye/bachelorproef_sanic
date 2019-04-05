@@ -7,7 +7,7 @@ from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUZ
 
 blueprint = Blueprint("middleware.middleware")
 
-ALLOWED_ROUTES_WITHOUT_CREDS = ["/swagger"]
+ALLOWED_ROUTES_WITHOUT_CREDS = ["/v1/api/allowed", "/swagger"]
 
 
 @blueprint.middleware("response")
@@ -64,9 +64,6 @@ async def auth_middleware_test(request):
             allowed = resp.get("allowed", False)
             if not allowed:
                 return json(resp, status=status)
-            else:
-                auz_token = resp["auz_token"]
         except Exception as e:
             logger.error(e)
             return json({"error": e})
-        request.headers["auz_token"] = auz_token

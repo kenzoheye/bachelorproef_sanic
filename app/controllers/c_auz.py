@@ -85,7 +85,7 @@ async def check_token(auz_token):
         raise "no token in memory"
 
 
-async def allowed_route(payload, authorization_header):
+async def allowed_route(payload, authorization_header=None):
     logger.debug("allowed_route called")
     try:
         authorizationRequest = AuthorizationRequest(
@@ -329,7 +329,7 @@ async def allowed_route(payload, authorization_header):
         )
     logger.info(f"User {user} has correct role")
 
-    # let us create a token and store it
+    # let us create a token and store it, for the route
     token = await generate_token()
 
     datetime_object = datetime.datetime.now()
