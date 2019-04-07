@@ -86,7 +86,10 @@ async def check_token(request):
         if "auz_token" not in payload:
             raise Exception("no auz token provided!!!")
         auz_token = payload["auz_token"]
-        resp = await dc.check_token(auz_token)
+        time_decorator = None
+        if "time_decorator" in payload:
+            time_decorator = payload["time_decorator"]
+        resp = await dc.check_token(auz_token, time_decorator)
         return json(resp)
     except KeyError as e:
         logger.error(e)

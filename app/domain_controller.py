@@ -20,9 +20,9 @@ async def allowed_route(payload, authorization_header) -> dict:
         )
 
 
-async def check_token(token) -> dict:
+async def check_token(token, time_decorator=None) -> dict:
     try:
-        data = await c_auz.check_token(token)
+        data = await c_auz.check_token(token, time_decorator)
         return data
     except FormattedException as e:
         logger.error(e.formatted)

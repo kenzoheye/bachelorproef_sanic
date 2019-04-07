@@ -69,14 +69,18 @@ async def generate_token(n=24, *args, **kwargs):
     return str(binascii.hexlify(os.urandom(n)), "utf-8")
 
 
-async def check_token(auz_token):
+async def check_token(auz_token, time_decorator=None):
+    now = time.time()
     if auz_token in MEM:
-        time_took = time.time() - MEM[auz_token]["time_stamp"]
+        time_took = now - MEM[auz_token]["time_stamp"]
         metrics_object = MEM[auz_token].copy()
         metrics_object["time_took"] = time_took
         logger.debug(f"DELETING AUZ_TOKEN {MEM[auz_token]}, request took: {time_took}")
         loop = asyncio.get_event_loop()
         MEM[auz_token]["time_took"] = time_took
+
+        if time_decorator:
+            MEM[auz_token]["time_took_plus_decorator"] = now - time_decorator
         loop.create_task(push_metrics_auz_route_tracing_complete(MEM[auz_token]))
         del metrics_object
         del MEM[auz_token]
