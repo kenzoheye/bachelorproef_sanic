@@ -107,3 +107,29 @@ async def check_token(request):
             e, domain="auz", detail="There was a problem checking if route is allowed"
         )
         return json(f.formatted, status=f.formatted.get("code", 400))
+
+
+@doc.summary("TODO")
+async def get_role_from_auz_token(request):
+    try:
+        if "auz_token" not in request.headers:
+            raise Exception("no auz token provided!!!")
+        auz_token = request.headers["auz_token"]
+        resp = await dc.get_role_from_auz_token(auz_token)
+        return json(resp)
+    except KeyError as e:
+        logger.error(e)
+        return json("no auz_token provided", status=400)
+    except FormattedException as e:
+        logger.error(e)
+        logger.error(e.formatted)
+        return json(e.formatted, status=e.formatted.get("code", 400))
+    except Exception as e:
+        logger.error(e)
+        import traceback
+
+        print((traceback.print_exc()))
+        f = FormattedException(
+            e, domain="auz", detail="There was a problem checking if route is allowed"
+        )
+        return json(f.formatted, status=f.formatted.get("code", 400))

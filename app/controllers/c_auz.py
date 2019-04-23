@@ -89,6 +89,15 @@ async def check_token(auz_token, time_decorator=None):
         raise "no token in memory"
 
 
+async def get_role_by_auz_token(auz_token):
+
+    if auz_token in MEM:
+        role = MEM[auz_token]["user_role"]
+    else:
+        raise Exception("no such auz_token")
+    return {"role": role}
+
+
 async def allowed_route(payload, authorization_header=None):
     logger.debug("allowed_route called")
     try:

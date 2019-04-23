@@ -34,3 +34,19 @@ async def check_token(token, time_decorator=None) -> dict:
             domain="check_token",
             detail="There was a problem checking if token is allowed",
         )
+
+
+async def get_role_from_auz_token(auz_token):
+    try:
+        data = await c_auz.get_role_by_auz_token(auz_token)
+        return data
+    except FormattedException as e:
+        logger.error(e.formatted)
+        raise e
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(
+            e,
+            domain="get info about auz token",
+            detail="There was a problem checking if token is allowed",
+        )

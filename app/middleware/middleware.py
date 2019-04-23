@@ -7,6 +7,7 @@ from config import TIMEOUT, SERVER_WG_BE_PHOENIX_AUZ
 
 blueprint = Blueprint("middleware.middleware")
 
+# here are the allowed, routes, the not allowed routes are in api.permissions table
 ALLOWED_ROUTES_WITHOUT_CREDS = ["/v1/api/allowed", "/swagger"]
 
 

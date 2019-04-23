@@ -19,3 +19,10 @@ API.add_route(
     version="v1",
     strict_slashes=True,
 )
+API.add_route(
+    r_auz.get_role_from_auz_token,
+    "/auz_token/info/role",
+    methods=["GET"],
+    version="v1",
+    strict_slashes=True,
+)
