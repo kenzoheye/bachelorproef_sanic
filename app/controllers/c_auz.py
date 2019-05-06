@@ -185,13 +185,12 @@ async def allowed_route(payload, authorization_header=None):
                         resp = await resp.json()
                 if resp.get("me"):
                     user = User(**resp["me"])
-                    logger.info(
-                        f"User {user} trying to authorize with {authorizationRequest}"
-                    )
                 else:
-                    raise FormattedException(
-                        "Invalid Bearer token", domain="auz", detail=resp, code=status
-                    )
+                    user = User(role="anonymous")
+
+                logger.info(
+                    f"User {user} trying to authorize with {authorizationRequest}"
+                )
             except FormattedException as e:
                 logger.error(e)
                 raise e
