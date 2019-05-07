@@ -136,6 +136,7 @@ async def allowed_route(payload, authorization_header=None):
 
     # SETTING THE DEFAULT USER OBJECT THIS IS NEEDED
     user = None
+    invalid_token = False
     if authorizationRequest.authorization_header:
         logger.info("Authorization header found")
 
@@ -187,6 +188,7 @@ async def allowed_route(payload, authorization_header=None):
                     user = User(**resp["me"])
                 else:
                     user = User(role="anonymous")
+                    invalid_token = True
 
                 logger.info(
                     f"User {user} trying to authorize with {authorizationRequest}"
@@ -332,6 +334,8 @@ async def allowed_route(payload, authorization_header=None):
         pass
     elif user.role in allowed_roles and user.caller in allowed_callers:
         pass
+    elif invalid_token:
+        raise FormattedException("Invalid Bearer token", domain="auz", code=401)
     else:
         logger.info(
             f"User [{user}] does NOT have a correct role, userrole: [{user.role}] caller: [{user.caller}] for [{authorizationRequest.method} {authorizationRequest.host} {authorizationRequest.uri}]"
