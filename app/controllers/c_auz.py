@@ -63,6 +63,10 @@ async def remove_old_entries_in_memory():
 
 
 async def remove_old_routes():
+    """
+    Removes all the entries in ROUTES_MEM that have expired (older than 3 hours)
+    This function checks the dict every 5 minutes (see app.py)
+    """
     while True:
         try:
             await asyncio.sleep(300)
@@ -71,15 +75,15 @@ async def remove_old_routes():
             _memory = deepcopy(ROUTES_MEM)
             for k, v in _memory.items():
                 if v.get("exp") and v["exp"] > time.time():
-                    logger.debug(
-                        f"Removing old entry, older than 3 hours: {ROUTES_MEM[k]}"
+                    logger.info(
+                        f"[REMOVING_ROUTES] Removing old entry, older than 3 hours: {ROUTES_MEM[k]}"
                     )
                     del ROUTES_MEM[k]
                 else:
                     for regex_k, regex_v in v.items():
                         if regex_v.get("exp") and regex_v["exp"] > time.time():
-                            logger.debug(
-                                f"Removing old entry, older than 3 hours: {ROUTES_MEM[k][regex_k]}"
+                            logger.info(
+                                f"[REMOVING_ROUTES] Removing old entry, older than 3 hours: {ROUTES_MEM[k][regex_k]}"
                             )
                             del ROUTES_MEM[k][regex_k]
                         if len(ROUTES_MEM[k]) == 0:
@@ -92,6 +96,9 @@ async def remove_old_routes():
 
 
 def url_hash(url):
+    """
+    counts the amount of slashes in an uri
+    """
     return url.count("/")
 
 
@@ -145,6 +152,10 @@ async def get_role_by_auz_token(auz_token):
 
 
 async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest):
+    """
+    First, checks the cached routes for roles and then gets the roles from the route in the database
+    checks if the route matches the regex check in the database and if it does returns the roles and caller
+    """
     hash_ = url_hash(authorizationRequest.uri)
     call = (
         SERVER_WG_BE_PHOENIX_MAIN
@@ -160,7 +171,7 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
         async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
             async with session.get(call) as resp:
                 resp = await resp.json()
-                logger.debug(resp)
+                logger.debug(f"ANSWER GOT FROM MAIN: {resp}")
 
     except Exception as e:
         logger.error(e)
@@ -185,13 +196,10 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
 
     elif "values" in resp:
         for val in resp["values"]:
-            logger.debug(val)
             regex = f'^{val["uri"]}$'
             if re.match(regex, authorizationRequest.uri):
                 roles = val.get("role")
                 callers = val.get("caller")
-                logger.debug(roles)
-                logger.debug(callers)
                 if not ROUTES_MEM.get(call):
                     ROUTES_MEM[call] = {}
                 ROUTES_MEM[call][val["uri"]] = {
@@ -200,11 +208,14 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
                     "exp": int(time.time() + 4320),
                 }
                 break
-    logger.debug((roles, callers))
     return roles, callers
 
 
 async def get_roles_from_route(authorizationRequest: AuthorizationRequest):
+    """
+    First, checks the cached routes for roles and then gets the roles from the route in the database
+    returns the role and caller for the found route
+    """
 
     call = (
         SERVER_WG_BE_PHOENIX_MAIN
@@ -217,7 +228,7 @@ async def get_roles_from_route(authorizationRequest: AuthorizationRequest):
         async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
             async with session.get(call) as resp:
                 resp = await resp.json()
-                logger.debug(resp)
+                logger.debug(f"ANSWER GOT FROM MAIN: {resp}")
 
     except Exception as e:
         logger.error(e)
@@ -237,11 +248,15 @@ async def get_roles_from_route(authorizationRequest: AuthorizationRequest):
 
 
 async def get_user(authorizationRequest: AuthorizationRequest):
+    """
+    Retrieves a user object from WG-BE-PHOENIX-AUT with given Bearer token
+    """
     headers = {"authorization": authorizationRequest.authorization_header}
     try:
         async with aiohttp.ClientSession(timeout=TIMEOUT, headers=headers) as session:
             resp = await session.get(SERVER_WG_BE_PHOENIX_AUT + "/auth/me")
             resp = await resp.json()
+
             return resp
 
     except Exception as e:
@@ -252,6 +267,9 @@ async def get_user(authorizationRequest: AuthorizationRequest):
 
 
 async def get_system(authorizationRequest: AuthorizationRequest):
+    """
+    Retrieves a system user object from WG-BE-PHOENIX-AUT with given System token
+    """
     headers = {"authorization": authorizationRequest.authorization_header}
     try:
         async with aiohttp.ClientSession(timeout=TIMEOUT, headers=headers) as session:
@@ -267,12 +285,21 @@ async def get_system(authorizationRequest: AuthorizationRequest):
 
 
 async def allowed_route(payload, authorization_header=None):
-    logger.debug("allowed_route called")
+    """
+    Checks if the user can call a specific route on a specific microservice with their role
+
+    Args:
+        payload:
+            host: name of the microservice
+            method: http method
+            uri: endpoint to call on microservice
+            ip: ip of caller
+    """
+    logger.debug("[ENTERED AUZ] allowed_route called")
     try:
         authorizationRequest = AuthorizationRequest(
             **payload, authorization_header=authorization_header
         )
-        logger.info(authorizationRequest)
     except TypeError as e:
         logger.error(f"Missing arguments: {e}")
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
@@ -307,27 +334,24 @@ async def allowed_route(payload, authorization_header=None):
     user = User(role="anonymous")
     invalid_token_error = None
     if authorizationRequest.authorization_header:
-        logger.info("Authorization header found")
         if authorizationRequest.is_system_token:
-            logger.info("IS SYSTEM TOKEN")
+            logger.info("Authorization header is a SYSTEM_TOKEN!")
             userdata = await get_system(authorizationRequest)
         else:
-            logger.info("IS NORMAL USER -- GETTING DATA")
+            logger.info("Authorization header is a USER!")
             userdata = await get_user(authorizationRequest)
-            logger.debug(userdata)
         try:
             if "exception" in userdata:
                 invalid_token_error = FormattedException(
                     userdata["reasons"][0], domain="auz", code=401
                 )
             else:
-                logger.debug(userdata)
                 if userdata.get("me"):
                     user = User(**userdata["me"])
                 else:
                     user = User(**userdata)
                 if user.role == "admin":
-                    logger.info("USER IS ADMIN -- SKIPPING")
+                    logger.info("===== USER ROLE IS ADMIN SKIPPING ROUTE CHECK =====")
                     token = await generate_store_token(authorizationRequest, user)
                     return {"allowed": True, "auz_token": token}
         except Exception as e:
@@ -358,29 +382,14 @@ async def allowed_route(payload, authorization_header=None):
         asyncio.create_task(get_roles_from_regex_route(authorizationRequest)),
     ]
 
-    # for t in await asyncio.gather(*role_tasks):
-    #     role, caller = t
-    #     logger.debug(f"role: {role} & caller: {caller}")
-    #     if role:
-    #         logger.debug("role found")
-    #         if "anonymous" in role:
-    #             token = await generate_store_token(authorizationRequest, user)
-    #             return {"allowed": True, "auz_token": token}
-    #         allowed_roles = role
-    #         allowed_callers = caller
-    #         break
     logger.debug("==========STARTING ROUTE TASKS NOW==========")
     allowed_roles = None
     invalid_token_error = None
     for t in asyncio.as_completed(role_tasks):
         role, caller = await t
-        logger.debug(f"role: {role} & caller: {caller}")
         if role:
-            logger.debug("role found")
+            logger.debug(f"ROLE FOUND IN ROUTE: {role}")
             if "anonymous" in role:
-                logger.debug(
-                    "ROLE IS ANONYMOUS, ALLOWING ACCESS TO EVERYONE, RETURNING TRUE"
-                )
                 token = await generate_store_token(authorizationRequest, user)
                 return {"allowed": True, "auz_token": token}
             allowed_roles = role
@@ -410,7 +419,6 @@ async def allowed_route(payload, authorization_header=None):
         raise FormattedException(
             "User does not have the correct access rights", domain="auz", code=403
         )
-    logger.info(f"User {user} has correct role")
 
     # let us create a token and store it, for the route
     token = await generate_store_token(authorizationRequest, user)
