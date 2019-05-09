@@ -20,6 +20,8 @@ from api_metrics import (
     push_metrics_auz_route_tracing_expired,
 )
 
+CACHE_EXPIRATION_DELTA = 3 * 60 * 60
+
 """
 we need to check on different levels:
 
@@ -191,7 +193,7 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
             ROUTES_MEM[call][resp["uri"]] = {
                 "roles": roles,
                 "callers": callers,
-                "exp": int(time.time() + 4320),
+                "exp": int(time.time() + CACHE_EXPIRATION_DELTA),
             }
 
     elif "values" in resp:
@@ -205,7 +207,7 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
                 ROUTES_MEM[call][val["uri"]] = {
                     "roles": roles,
                     "callers": callers,
-                    "exp": int(time.time() + 4320),
+                    "exp": int(time.time() + CACHE_EXPIRATION_DELTA),
                 }
                 break
     return roles, callers
@@ -241,7 +243,7 @@ async def get_roles_from_route(authorizationRequest: AuthorizationRequest):
         ROUTES_MEM[call] = {
             "roles": roles,
             "callers": callers,
-            "exp": int(time.time() + 4320),
+            "exp": int(time.time() + CACHE_EXPIRATION_DELTA),
         }
 
     return roles, callers
