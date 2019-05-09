@@ -35,6 +35,7 @@ VIA API:
 """
 
 MEM = {}
+ROUTES_MEM = {}
 
 
 async def remove_old_entries_in_memory(app):
@@ -65,8 +66,24 @@ def url_hash(url):
     return url.count("/")
 
 
-async def generate_token(n=24, *args, **kwargs):
-    return str(binascii.hexlify(os.urandom(n)), "utf-8")
+async def generate_store_token(authorizationRequest, user, n=24):
+    token = str(binascii.hexlify(os.urandom(n)), "utf-8")
+    datetime_object = datetime.datetime.now()
+
+    # TODO add user to dict via dataclasses
+    MEM[token] = {
+        "uri": authorizationRequest.uri,
+        "host": authorizationRequest.host,
+        "method": authorizationRequest.method,
+        "ip": authorizationRequest.ip,
+        "created_at": str(datetime_object),
+        "time_stamp": time.time(),
+        "user_role": user.role,
+        "user_email": user.email,
+        "user_system_token": user.system_token,
+    }
+    logger.debug(f"STORING AUZ_TOKEN {MEM[token]}")
+    return token
 
 
 async def check_token(auz_token, time_decorator=None):
@@ -98,6 +115,111 @@ async def get_role_by_auz_token(auz_token):
     return {"role": role}
 
 
+async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest):
+    hash_ = url_hash(authorizationRequest.uri)
+    call = (
+        SERVER_WG_BE_PHOENIX_MAIN
+        + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&url_hash={hash_}"
+    )
+    logger.debug(call)
+    if call in list(ROUTES_MEM.keys()):
+        for regex, value in ROUTES_MEM[call].items():
+            if re.match(regex, authorizationRequest.uri):
+                return value.get("roles"), value.get("callers")
+
+    logger.info(f"Checking role for route: {call}")
+    try:
+        async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
+            async with session.get(call) as resp:
+                resp = await resp.json()
+                logger.debug(resp)
+
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(
+            e, domain="auz", detail="There was a problem connecting to MAIN", code=503
+        )
+    roles = None
+    callers = None
+
+    if "role" in resp:
+        roles = resp.get("role")
+        callers = resp.get("caller")
+        ROUTES_MEM[call][resp["uri"]] = {"roles": roles, "callers": callers}
+
+    elif "values" in resp:
+        for val in resp["values"]:
+            logger.debug(val)
+            regex = f'^{val["uri"]}$'
+            if re.match(regex, authorizationRequest.uri):
+                roles = val.get("role")
+                callers = val.get("caller")
+                logger.debug(roles)
+                logger.debug(callers)
+                if not ROUTES_MEM.get(call):
+                    ROUTES_MEM[call] = {}
+                ROUTES_MEM[call][val["uri"]] = {"roles": roles, "callers": callers}
+                break
+
+    return roles, callers
+
+
+async def get_roles_from_route(authorizationRequest: AuthorizationRequest):
+
+    call = (
+        SERVER_WG_BE_PHOENIX_MAIN
+        + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&uri={authorizationRequest.uri}"
+    )
+    if call in list(ROUTES_MEM.keys()):
+        return ROUTES_MEM[call].get("roles"), ROUTES_MEM[call].get("callers")
+    logger.info(f"Checking role for route: {call}")
+    try:
+        async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
+            async with session.get(call) as resp:
+                resp = await resp.json()
+                logger.debug(resp)
+
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(
+            e, domain="auz", detail="There was a problem connecting to MAIN", code=503
+        )
+    roles = resp.get("role")
+    callers = resp.get("caller")
+    ROUTES_MEM[call] = {"roles": roles, "callers": callers}
+    return roles, callers
+
+
+async def get_user(authorizationRequest: AuthorizationRequest):
+    headers = {"authorization": authorizationRequest.authorization_header}
+    try:
+        async with aiohttp.ClientSession(timeout=TIMEOUT, headers=headers) as session:
+            resp = await session.get(SERVER_WG_BE_PHOENIX_AUT + "/auth/me")
+            resp = await resp.json()
+            return resp
+
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(
+            e, domain="auz", detail="There was a problem connecting to AUT", code=503
+        )
+
+
+async def get_system(authorizationRequest: AuthorizationRequest):
+    headers = {"authorization": authorizationRequest.authorization_header}
+    try:
+        async with aiohttp.ClientSession(timeout=TIMEOUT, headers=headers) as session:
+            resp = await session.get(SERVER_WG_BE_PHOENIX_AUT + "/verify/system_token")
+            resp = await resp.json()
+            return resp
+
+    except Exception as e:
+        logger.error(e)
+        raise FormattedException(
+            e, domain="auz", detail="There was a problem connecting to AUT", code=503
+        )
+
+
 async def allowed_route(payload, authorization_header=None):
     logger.debug("allowed_route called")
     try:
@@ -105,10 +227,11 @@ async def allowed_route(payload, authorization_header=None):
             **payload, authorization_header=authorization_header
         )
         logger.info(authorizationRequest)
-    except KeyError as e:
-        logger.error(f"There is a missing key in body: {e}")
+    except TypeError as e:
+        logger.error(f"Missing arguments: {e}")
         raise FormattedException(f"There is a missing key in body: {e}", domain="auz")
     except Exception as e:
+        logger.error(type(e))
         logger.error(e)
         raise FormattedException(f"Unable to create AuthorizationRequest", domain="auz")
 
@@ -135,78 +258,33 @@ async def allowed_route(payload, authorization_header=None):
     # IP TRACKING END -- TODO --
 
     # SETTING THE DEFAULT USER OBJECT THIS IS NEEDED
-    user = None
-    invalid_token = False
+    user = User(role="anonymous")
+    invalid_token_error = None
     if authorizationRequest.authorization_header:
         logger.info("Authorization header found")
-
         if authorizationRequest.is_system_token:
-            # SYSTEM TOKEN IS DIFFERENT ENDPOINT TO CHECK
-            headers = {"authorization": authorizationRequest.authorization_header}
-            try:
-                async with aiohttp.ClientSession(
-                    timeout=TIMEOUT, headers=headers
-                ) as session:
-                    async with session.get(
-                        SERVER_WG_BE_PHOENIX_AUT + "/verify/system_token"
-                    ) as resp:
-                        status = resp.status
-                        resp = await resp.json()
-                if "role" in resp:  # stupid check to see if it is really a user
-                    user = User(**resp)
-                    logger.info(
-                        f"System user: {user} trying to authorize with {authorizationRequest}"
-                    )
-                else:
-                    raise FormattedException(
-                        "Invalid system token", domain="auz", detail=resp, code=status
-                    )
-            except FormattedException as e:
-                logger.error(e)
-                raise e
-            except Exception as e:
-                logger.error(e)
-                raise FormattedException(
-                    e,
-                    domain="auz",
-                    detail="There was a problem connecting to AUT",
-                    code=503,
-                )
-
+            logger.info("IS SYSTEM TOKEN")
+            userdata = await get_system(authorizationRequest)
         else:
-            headers = {"authorization": authorizationRequest.authorization_header}
-            try:
-                async with aiohttp.ClientSession(
-                    timeout=TIMEOUT, headers=headers
-                ) as session:
-                    async with session.get(
-                        SERVER_WG_BE_PHOENIX_AUT + "/auth/me"
-                    ) as resp:
-                        status = resp.status
-                        resp = await resp.json()
-                if resp.get("me"):
-                    user = User(**resp["me"])
-                else:
-                    user = User(role="anonymous")
-                    invalid_token = True
-
-                logger.info(
-                    f"User {user} trying to authorize with {authorizationRequest}"
+            logger.info("IS NORMAL USER -- GETTING DATA")
+            userdata = await get_user(authorizationRequest)
+            logger.debug(userdata)
+        try:
+            if "exception" in userdata:
+                invalid_token_error = FormattedException(
+                    userdata["reasons"][0], domain="auz", code=401
                 )
-            except FormattedException as e:
-                logger.error(e)
-                raise e
-            except Exception as e:
-                logger.error(e)
-                raise FormattedException(
-                    e,
-                    domain="auz",
-                    detail="There was a problem connecting to AUT",
-                    code=503,
-                )
-    else:
-        user = User(role="anonymous")
-        logger.info(f"User {user} trying to authorize with {authorizationRequest}")
+            else:
+                logger.debug(userdata)
+                user = User(**userdata["me"])
+                if user.role == "admin":
+                    token = await generate_store_token(authorizationRequest, user)
+                    return {"allowed": True, "auz_token": token}
+        except Exception as e:
+            logger.error(e)
+            raise FormattedException(
+                e, domain="auz", detail="Did not get valid userdata", code=400
+            )
 
     # ---- TESTING PURPOSES -----
     hosts = {
@@ -222,120 +300,51 @@ async def allowed_route(payload, authorization_header=None):
         host = hosts.get(host)
         authorizationRequest.host = host
     # ---- TESTING PURPOSES -----
-    call = (
-        SERVER_WG_BE_PHOENIX_MAIN
-        + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&uri={authorizationRequest.uri}"
-    )
-    logger.info(f"Calling main on route: {call} by user: {user}")
-    try:
-        async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
-            async with session.get(call) as resp:
-                status = resp.status
-                resp = await resp.json()
-                logger.debug(f"information retrieved from main first try: {resp}")
-    except Exception as e:
-        logger.error(e)
-        raise FormattedException(
-            e, domain="auz", detail="There was a problem connecting to MAIN"
-        )
 
-    allowed_roles = None
-    allowed_callers = None
-    try:
-        """
-        here is some additional logic needed
-        we can check a certain route on 3 different levels:
-        1 on 1: /v1/api/users == /v1/api/users
-        but what about /v1/api/id which is actually something like /v1/api/45jlfd-234fs-dfa-2....
-        here we need a regex check. we can do a specific regex check or a general
-        /v1/api/[A-z]+ is better then /v1/api/.+
-        additional we need to have a certain hash check see url_hash
-        """
-        if status == 200:
-            allowed_roles = resp["role"]
-            allowed_callers = resp["caller"] or None
-            logger.info(
-                f"allowed roles for uri: {authorizationRequest.uri}: roles: {allowed_roles} callers: {allowed_callers}"
-            )
-        elif status == 400:  # which means nothing is found or something is wrong
-            logger.debug(
-                f"no allowed roles found at first for {authorizationRequest.uri} trying with regex matching"
-            )
-            hash_ = url_hash(authorizationRequest.uri)
-            call = (
-                SERVER_WG_BE_PHOENIX_MAIN
-                + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&url_hash={hash_}"
-            )
-            # 3 options nothing found again, 1 result or many
-            # logger.info(f"Calling main on route: {call} by user: {user}")
-            try:
-                async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
-                    async with session.get(call) as resp:
-                        status = resp.status
-                        resp = await resp.json()
-                        logger.debug(
-                            f"information retrieved from main with url_hash: {resp}"
-                        )
-            except Exception as e:
-                logger.error(e)
-                raise FormattedException(
-                    domain="auz", detail="There was a problem connecting to MAIN"
-                )
-            if status == 400:  # this means there are no urls
-                raise "nothing found got from main: {resp}"
-            elif status == 200:
-                if "values" in resp:  # means there are multiple uri's returned
-                    logger.debug("mutliple results returned to regex check")
-                    # TODO add paging
-                    for value in resp["values"]:
-                        pattern = re.compile(f"^{value['uri']}$")
-                        if re.match(f"^{value['uri']}$", authorizationRequest.uri):
-                            logger.debug(
-                                f"in multiple regex values got match {value['uri']}"
-                            )
-                            allowed_roles = value["role"]
-                            allowed_callers = value["caller"]
-                            break
-                    else:
-                        raise "no regex match found"
+    role_tasks = [
+        asyncio.create_task(get_roles_from_route(authorizationRequest)),
+        asyncio.create_task(get_roles_from_regex_route(authorizationRequest)),
+    ]
 
-                elif (
-                    "role" in resp
-                ):  # this does not mean yet this is good, we need to check
-                    logger.debug(f"single result returned to regex check")
-                    pattern = re.compile(f"^{resp['uri']}$")
-                    if pattern.match(authorizationRequest.uri):
-                        logger.debug(f"in sigle regex check got match {resp['uri']}")
-                        allowed_roles = resp["role"]
-                        allowed_callers = resp["caller"]
-                    else:
-                        raise "no regex match found"
-                else:
-                    raise "no routes found"
-    except Exception as e:
-        logger.error(
-            f"uri {authorizationRequest.uri} doesn't exist or is not allowed to be accessed error: {e}"
-        )
-        raise FormattedException(
-            "uri doesn't exist or is not allowed to be accessed", domain="auz", code=403
-        )
+    # for t in await asyncio.gather(*role_tasks):
+    #     role, caller = t
+    #     logger.debug(f"role: {role} & caller: {caller}")
+    #     if role:
+    #         logger.debug("role found")
+    #         if "anonymous" in role:
+    #             token = await generate_store_token(authorizationRequest, user)
+    #             return {"allowed": True, "auz_token": token}
+    #         allowed_roles = role
+    #         allowed_callers = caller
+    #         break
+    invalid_token_error = None
+    for t in asyncio.as_completed(role_tasks):
+        x = await t
+        role, caller = x
+        logger.debug(f"role: {role} & caller: {caller}")
+        if role:
+            logger.debug("role found")
+            if "anonymous" in role:
+                token = await generate_store_token(authorizationRequest, user)
+                return {"allowed": True, "auz_token": token}
+            allowed_roles = role
+            allowed_callers = caller
+            break
 
-    # ######################
-    # CHECKING ROLES CAREFULL
-    # ######################
     if not allowed_roles:
-        logger.error("no allowed_roles")
-        raise Exception("no allowed_roles")
-    if "anonymous" in allowed_roles:
+        # TODO ROUTE NOT FOUND
+        raise FormattedException("URI does not exist.", domain="auz", code=404)
+
+    # ? ######################
+    # ! CHECKING ROLES CAREFULL
+    # ? ######################
+
+    elif user.role in allowed_roles and (
+        not allowed_callers or user.caller in allowed_callers
+    ):
         pass
-    elif user.role == "admin":
-        pass
-    elif user.role in allowed_roles and not allowed_callers:
-        pass
-    elif user.role in allowed_roles and user.caller in allowed_callers:
-        pass
-    elif invalid_token:
-        raise FormattedException("Invalid Bearer token", domain="auz", code=401)
+    elif invalid_token_error is not None:
+        raise invalid_token_error
     else:
         logger.info(
             f"User [{user}] does NOT have a correct role, userrole: [{user.role}] caller: [{user.caller}] for [{authorizationRequest.method} {authorizationRequest.host} {authorizationRequest.uri}]"
@@ -346,22 +355,6 @@ async def allowed_route(payload, authorization_header=None):
     logger.info(f"User {user} has correct role")
 
     # let us create a token and store it, for the route
-    token = await generate_token()
-
-    datetime_object = datetime.datetime.now()
-
-    # TODO add user to dict via dataclasses
-    MEM[token] = {
-        "uri": authorizationRequest.uri,
-        "host": authorizationRequest.host,
-        "method": authorizationRequest.method,
-        "ip": authorizationRequest.ip,
-        "created_at": str(datetime_object),
-        "time_stamp": time.time(),
-        "user_role": user.role,
-        "user_email": user.email,
-        "user_system_token": user.system_token,
-    }
-    logger.debug(f"STORING AUZ_TOKEN {MEM[token]}")
+    token = await generate_store_token(authorizationRequest, user)
 
     return {"allowed": True, "auz_token": token}
