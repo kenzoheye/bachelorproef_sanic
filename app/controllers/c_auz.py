@@ -38,8 +38,8 @@ MEM = {}
 ROUTES_MEM = {}
 
 
-async def remove_old_entries_in_memory(app):
-    while 1:
+async def remove_old_entries_in_memory():
+    while True:
         try:
             # every 5 minutes 300
             await asyncio.sleep(300)
@@ -60,6 +60,31 @@ async def remove_old_entries_in_memory(app):
         except Exception as e:
             logger.error("Cannot remove old session")
             logger.error(e)
+
+
+async def remove_old_routes():
+    while True:
+        try:
+            await asyncio.sleep(300)
+            logger.debug("Removing routes routine started")
+            for k, v in ROUTES_MEM.items():
+                if v.get("exp") and v["exp"] > time.time():
+                    logger.debug(
+                        f"Removing old entry, older than 3 hours: {ROUTES_MEM[k]}"
+                    )
+                    del ROUTES_MEM[k]
+                else:
+                    for regex_k, regex_v in v.items():
+                        if regex_v.get("exp") and regex_v["exp"] > time.time():
+                            logger.debug(
+                                f"Removing old entry, older than 3 hours: {ROUTES_MEM[k][regex_k]}"
+                            )
+                            del ROUTES_MEM[k][regex_k]
+                        if len(ROUTES_MEM[k]) == 0:
+                            del ROUTES_MEM[k]
+        except Exception as e:
+            logger.error(e)
+            logger.error("Cannot remove routes")
 
 
 def url_hash(url):
@@ -121,13 +146,12 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
         SERVER_WG_BE_PHOENIX_MAIN
         + f"/v1/api/permission?host={authorizationRequest.host}&http_method={authorizationRequest.method}&url_hash={hash_}"
     )
-    logger.debug(call)
-    if call in list(ROUTES_MEM.keys()):
+    logger.info(f"Checking role for REGEX route: {call}")
+    if call in ROUTES_MEM:
         for regex, value in ROUTES_MEM[call].items():
             if re.match(regex, authorizationRequest.uri):
                 return value.get("roles"), value.get("callers")
 
-    logger.info(f"Checking role for route: {call}")
     try:
         async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
             async with session.get(call) as resp:
@@ -143,9 +167,15 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
     callers = None
 
     if "role" in resp:
-        roles = resp.get("role")
-        callers = resp.get("caller")
-        ROUTES_MEM[call][resp["uri"]] = {"roles": roles, "callers": callers}
+        regex = f'^{resp["uri"]}$'
+        if re.match(regex, authorizationRequest.uri):
+            roles = resp.get("role")
+            callers = resp.get("caller")
+            ROUTES_MEM[call][resp["uri"]] = {
+                "roles": roles,
+                "callers": callers,
+                "exp": int(time.time() + 4320),
+            }
 
     elif "values" in resp:
         for val in resp["values"]:
@@ -158,9 +188,13 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
                 logger.debug(callers)
                 if not ROUTES_MEM.get(call):
                     ROUTES_MEM[call] = {}
-                ROUTES_MEM[call][val["uri"]] = {"roles": roles, "callers": callers}
+                ROUTES_MEM[call][val["uri"]] = {
+                    "roles": roles,
+                    "callers": callers,
+                    "exp": int(time.time() + 4320),
+                }
                 break
-
+    logger.debug((roles, callers))
     return roles, callers
 
 
@@ -186,7 +220,13 @@ async def get_roles_from_route(authorizationRequest: AuthorizationRequest):
         )
     roles = resp.get("role")
     callers = resp.get("caller")
-    ROUTES_MEM[call] = {"roles": roles, "callers": callers}
+    if roles:
+        ROUTES_MEM[call] = {
+            "roles": roles,
+            "callers": callers,
+            "exp": int(time.time() + 4320),
+        }
+
     return roles, callers
 
 
@@ -221,6 +261,7 @@ async def get_system(authorizationRequest: AuthorizationRequest):
 
 
 async def allowed_route(payload, authorization_header=None):
+    logger.info(ROUTES_MEM)
     logger.debug("allowed_route called")
     try:
         authorizationRequest = AuthorizationRequest(
@@ -276,7 +317,10 @@ async def allowed_route(payload, authorization_header=None):
                 )
             else:
                 logger.debug(userdata)
-                user = User(**userdata["me"])
+                if userdata.get("me"):
+                    user = User(**userdata["me"])
+                else:
+                    user = User(**userdata)
                 if user.role == "admin":
                     token = await generate_store_token(authorizationRequest, user)
                     return {"allowed": True, "auz_token": token}
@@ -291,11 +335,13 @@ async def allowed_route(payload, authorization_header=None):
         "localhost:5000": "wg-be-api-car",
         "localhost:5001": "wg-be-phoenix-aut",
         "localhost:5002": "wg-be-phoenix-auz",
+        "localhost:5020": "wg-be-api-quotes",
         "localhost:5050": "wg-be-phoenix-mailer",
     }
 
     if "localhost" in authorizationRequest.host or ":" in authorizationRequest.host:
         logger.debug("------------- TESTING ----------------")
+        logger.debug(f"LOCALHOST TESTING WITH : {authorizationRequest}")
         host = authorizationRequest.host.split("/")[0]  # with port
         host = hosts.get(host)
         authorizationRequest.host = host
@@ -317,6 +363,7 @@ async def allowed_route(payload, authorization_header=None):
     #         allowed_roles = role
     #         allowed_callers = caller
     #         break
+    allowed_roles = None
     invalid_token_error = None
     for t in asyncio.as_completed(role_tasks):
         x = await t
@@ -325,6 +372,9 @@ async def allowed_route(payload, authorization_header=None):
         if role:
             logger.debug("role found")
             if "anonymous" in role:
+                logger.debug(
+                    "ROLE IS ANONYMOUS, ALLOWING ACCESS TO EVERYONE, RETURNING TRUE"
+                )
                 token = await generate_store_token(authorizationRequest, user)
                 return {"allowed": True, "auz_token": token}
             allowed_roles = role
@@ -333,7 +383,9 @@ async def allowed_route(payload, authorization_header=None):
 
     if not allowed_roles:
         # TODO ROUTE NOT FOUND
-        raise FormattedException("URI does not exist.", domain="auz", code=404)
+        raise FormattedException(
+            "URI does not exist or method is not allowed", domain="auz", code=404
+        )
 
     # ? ######################
     # ! CHECKING ROLES CAREFULL

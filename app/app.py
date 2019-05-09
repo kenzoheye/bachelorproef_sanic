@@ -7,7 +7,7 @@ from sanic_jwt import Initialize
 from middleware.middleware import blueprint as middleware
 from route import ROUTES
 from config import SECRET
-from controllers.c_auz import remove_old_entries_in_memory
+from controllers.c_auz import remove_old_entries_in_memory, remove_old_routes
 
 app = Sanic(__name__, log_config=LOGGING_CONFIG, strict_slashes=True)
 
@@ -23,7 +23,8 @@ Initialize(app, auth_mode=False, secret=SECRET)
 
 @app.listener("after_server_start")
 async def start_background_tasks_after_server_starts(app, loop):
-    loop.create_task(remove_old_entries_in_memory(app))
+    loop.create_task(remove_old_entries_in_memory())
+    loop.create_task(remove_old_routes())
 
 
 logger.info("START WG-BE-PHOENIX-AUZ")
