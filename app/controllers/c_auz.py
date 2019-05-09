@@ -261,7 +261,6 @@ async def get_system(authorizationRequest: AuthorizationRequest):
 
 
 async def allowed_route(payload, authorization_header=None):
-    logger.info(ROUTES_MEM)
     logger.debug("allowed_route called")
     try:
         authorizationRequest = AuthorizationRequest(
@@ -322,6 +321,7 @@ async def allowed_route(payload, authorization_header=None):
                 else:
                     user = User(**userdata)
                 if user.role == "admin":
+                    logger.info("USER IS ADMIN -- SKIPPING")
                     token = await generate_store_token(authorizationRequest, user)
                     return {"allowed": True, "auz_token": token}
         except Exception as e:
@@ -363,6 +363,7 @@ async def allowed_route(payload, authorization_header=None):
     #         allowed_roles = role
     #         allowed_callers = caller
     #         break
+    logger.debug("==========STARTING ROUTE TASKS NOW==========")
     allowed_roles = None
     invalid_token_error = None
     for t in asyncio.as_completed(role_tasks):
@@ -380,7 +381,7 @@ async def allowed_route(payload, authorization_header=None):
             allowed_roles = role
             allowed_callers = caller
             break
-
+    logger.debug("==========ROUTE TASKS FINISHED==========")
     if not allowed_roles:
         # TODO ROUTE NOT FOUND
         raise FormattedException(
