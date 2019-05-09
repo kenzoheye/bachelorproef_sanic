@@ -67,7 +67,9 @@ async def remove_old_routes():
         try:
             await asyncio.sleep(300)
             logger.debug("Removing routes routine started")
-            for k, v in ROUTES_MEM.items():
+
+            _memory = deepcopy(ROUTES_MEM)
+            for k, v in _memory.items():
                 if v.get("exp") and v["exp"] > time.time():
                     logger.debug(
                         f"Removing old entry, older than 3 hours: {ROUTES_MEM[k]}"
@@ -82,6 +84,8 @@ async def remove_old_routes():
                             del ROUTES_MEM[k][regex_k]
                         if len(ROUTES_MEM[k]) == 0:
                             del ROUTES_MEM[k]
+
+            del _memory
         except Exception as e:
             logger.error(e)
             logger.error("Cannot remove routes")
@@ -171,6 +175,8 @@ async def get_roles_from_regex_route(authorizationRequest: AuthorizationRequest)
         if re.match(regex, authorizationRequest.uri):
             roles = resp.get("role")
             callers = resp.get("caller")
+            if not ROUTES_MEM.get(call):
+                ROUTES_MEM[call] = {}
             ROUTES_MEM[call][resp["uri"]] = {
                 "roles": roles,
                 "callers": callers,
@@ -367,8 +373,7 @@ async def allowed_route(payload, authorization_header=None):
     allowed_roles = None
     invalid_token_error = None
     for t in asyncio.as_completed(role_tasks):
-        x = await t
-        role, caller = x
+        role, caller = await t
         logger.debug(f"role: {role} & caller: {caller}")
         if role:
             logger.debug("role found")
