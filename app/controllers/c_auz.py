@@ -330,7 +330,7 @@ async def allowed_route(payload, authorization_header=None):
     }
     caller.get('calls').append(call)
     """
-    # IP TRACKING END -- TODO --
+    # TODO -- IP TRACKING END
 
     # SETTING THE DEFAULT USER OBJECT THIS IS NEEDED
     user = User(role="anonymous")
@@ -344,8 +344,15 @@ async def allowed_route(payload, authorization_header=None):
             userdata = await get_user(authorizationRequest)
         try:
             if "exception" in userdata:
+                reasons = {
+                    "Signature has expired.": "TOKEN_EXPIRED",
+                    "Auth required.": "TOKEN_INVALID",
+                }
+                msg = reasons.get(userdata["reasons"][0])
+                if msg is None:
+                    msg = "TOKEN_INVALID"
                 invalid_token_error = FormattedException(
-                    userdata["reasons"][0], domain="auz", code=401
+                    msg, detail=userdata["reasons"][0], domain="auz", code=401
                 )
             else:
                 if userdata.get("me"):
@@ -386,7 +393,6 @@ async def allowed_route(payload, authorization_header=None):
 
     logger.debug("==========STARTING ROUTE TASKS NOW==========")
     allowed_roles = None
-    invalid_token_error = None
     for t in asyncio.as_completed(role_tasks):
         role, caller = await t
         if role:
@@ -399,13 +405,15 @@ async def allowed_route(payload, authorization_header=None):
             break
     logger.debug("==========ROUTE TASKS FINISHED==========")
     if not allowed_roles:
-        # TODO ROUTE NOT FOUND
         raise FormattedException(
-            "URI does not exist or method is not allowed", domain="auz", code=404
+            "URI_DOESNT_EXIST",
+            domain="auz",
+            detail="URI does not exist or method is not allowed",
+            code=404,
         )
 
     # ? ######################
-    # ! CHECKING ROLES CAREFULL
+    # ! CHECKING ROLES
     # ? ######################
 
     elif user.role in allowed_roles and (
@@ -419,7 +427,10 @@ async def allowed_route(payload, authorization_header=None):
             f"User [{user}] does NOT have a correct role, userrole: [{user.role}] caller: [{user.caller}] for [{authorizationRequest.method} {authorizationRequest.host} {authorizationRequest.uri}]"
         )
         raise FormattedException(
-            "User does not have the correct access rights", domain="auz", code=403
+            "USER_NOT_ALLOWED",
+            detail="User does not have the correct access rights",
+            domain="auz",
+            code=403,
         )
 
     # let us create a token and store it, for the route
